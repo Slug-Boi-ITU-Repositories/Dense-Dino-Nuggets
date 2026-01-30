@@ -7,6 +7,7 @@
 *.dll
 *.so
 *.dylib
+flag_tool
 
 # Test binary, built with `go test -c`
 *.test
@@ -19,6 +20,8 @@ profile.cov
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+__pycache__/
 
 # Go workspace file
 go.work
