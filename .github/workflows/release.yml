@@ -8,35 +8,35 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-  steps:
-    - name: Setup environment
-      uses: actions/checkout@v3
-    - name: Run tests
-      run: "python3 minitwit_tests.py"
-    - name: Zip project
-      run: "tar -zcvf minitwit.tar.gz .python-version .venv control.sh flag_tool.c LICENSE Makefile minitwit.py minitwit_tests.py pyproject.toml README.md schema.sql static templates uv.lock"
-    - name: Auto Changelog
-      uses: ardalanamini/auto-changelog@v4.0.1
-      id  : changelog
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        commit-types: |
-            feat: New Features
-            fix: Bug Fixes
-            build: Build System & Dependencies
-            perf: Performance Improvements
-            docs: Documentation
-            test: Tests
-            refactor: Refactors
-            chore: Chores
-            ci: CI
-            cd: CD
-            style: Code Style
-            revert: Reverts
-    - name: Create release
-      uses: softprops/action-gh-release@v4
-      with:
-        body: ${{steps.changelog.outputs.changelog}}
-        files: "*.tar.gz"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Setup environment
+        uses: actions/checkout@v3
+      - name: Run tests
+        run: "python3 minitwit_tests.py"
+      - name: Zip project
+        run: "tar -zcvf minitwit.tar.gz .python-version .venv control.sh flag_tool.c LICENSE Makefile minitwit.py minitwit_tests.py pyproject.toml README.md schema.sql static templates uv.lock"
+      - name: Auto Changelog
+        uses: ardalanamini/auto-changelog@v4.0.1
+        id  : changelog
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          commit-types: |
+              feat: New Features
+              fix: Bug Fixes
+              build: Build System & Dependencies
+              perf: Performance Improvements
+              docs: Documentation
+              test: Tests
+              refactor: Refactors
+              chore: Chores
+              ci: CI
+              cd: CD
+              style: Code Style
+              revert: Reverts
+      - name: Create release
+        uses: softprops/action-gh-release@v4
+        with:
+          body: ${{steps.changelog.outputs.changelog}}
+          files: "*.tar.gz"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
