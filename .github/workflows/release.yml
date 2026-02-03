@@ -12,7 +12,7 @@ jobs:
       - name: Setup environment
         uses: actions/checkout@v3
       - name: Setup UV
-        uses: astral-sh/setup-uv@v7"
+        uses: astral-sh/setup-uv@v7.2.1"
         with:
           activate-environment: "true"
       - name: Run tests
