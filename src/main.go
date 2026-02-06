@@ -44,6 +44,59 @@ func init_db() {
 	}
 }
 
+// THIS FUNCTION IS DISGUSTING
+func query_db(query string, one bool, args ...any) []map[string]any {
+	var err error
+	var rows *sql.Rows
+	if args == nil {
+		rows, err = g.db.Query(query)
+	} else {
+		rows, err = g.db.Query(query, args)
+	}
+	if err != nil {
+		panic(err)
+	}
+
+	print()
+
+    defer rows.Close()
+
+    cols, err := rows.Columns()
+    if err != nil {
+        panic(err)
+    }
+
+    out := []map[string]any{}
+
+    for rows.Next() {
+        values := make([]any, len(cols))
+        pointers := make([]any, len(cols))
+        for i := range values {
+            pointers[i] = &values[i]
+        }
+
+        if err := rows.Scan(pointers...); err != nil {
+            panic(err)
+        }
+
+        row := make(map[string]any, len(cols))
+        for i, col := range cols {
+			row[col] = values[i]
+        }
+        out = append(out, row)
+    }
+
+    if err := rows.Err(); err != nil {
+		panic(err)
+    }
+
+	print(out[0]["username"])
+
+	if one {
+		return []map[string]any{out[0]}
+	} 
+	return out
+}
 
 func get_user_id(username string) int {
 	rows, err := g.db.Query("select user_id from user where username = ?", username)
