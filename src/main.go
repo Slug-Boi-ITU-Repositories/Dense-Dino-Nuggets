@@ -1,8 +1,12 @@
 package main
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
+	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -59,42 +63,42 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 
 	print()
 
-    defer rows.Close()
+	defer rows.Close()
 
-    cols, err := rows.Columns()
-    if err != nil {
-        panic(err)
-    }
-
-    out := []map[string]any{}
-
-    for rows.Next() {
-        values := make([]any, len(cols))
-        pointers := make([]any, len(cols))
-        for i := range values {
-            pointers[i] = &values[i]
-        }
-
-        if err := rows.Scan(pointers...); err != nil {
-            panic(err)
-        }
-
-        row := make(map[string]any, len(cols))
-        for i, col := range cols {
-			row[col] = values[i]
-        }
-        out = append(out, row)
-    }
-
-    if err := rows.Err(); err != nil {
+	cols, err := rows.Columns()
+	if err != nil {
 		panic(err)
-    }
+	}
+
+	out := []map[string]any{}
+
+	for rows.Next() {
+		values := make([]any, len(cols))
+		pointers := make([]any, len(cols))
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+
+		if err := rows.Scan(pointers...); err != nil {
+			panic(err)
+		}
+
+		row := make(map[string]any, len(cols))
+		for i, col := range cols {
+			row[col] = values[i]
+		}
+		out = append(out, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		panic(err)
+	}
 
 	print(out[0]["username"])
 
 	if one {
 		return []map[string]any{out[0]}
-	} 
+	}
 	return out
 }
 
@@ -106,7 +110,7 @@ func get_user_id(username string) int {
 	var id int
 	if rows.Next() {
 		rows.Scan(&id)
-		return id 
+		return id
 	}
 	return -1
 }
@@ -115,11 +119,16 @@ func format_datetime(timestamp time.Time) string {
 	return timestamp.Format("%Y-%m-%d @ %H:%M")
 }
 
+func gravatar_url(email string, size int) string {
+	emailHash := md5.Sum([]byte(strings.ToLower(strings.TrimSpace(email))))
+	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
+}
+
 func main() {
 
-	g.db = connect_db()
+	// g.db = connect_db()
 
-	defer g.db.Close()
-	query_db("SELECT * FROM user", false)
-
+	// defer g.db.Close()
+	// query_db("SELECT * FROM user", false)
+	print(gravatar_url("augustbrandt170@gmail.com", 80))
 }
