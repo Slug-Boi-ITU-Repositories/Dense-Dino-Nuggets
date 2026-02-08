@@ -49,25 +49,17 @@ func init_db() {
 }
 
 // THIS FUNCTION IS DISGUSTING
-func query_db(query string, one bool, args ...any) []map[string]any {
-	var err error
-	var rows *sql.Rows
-	if args == nil {
-		rows, err = g.db.Query(query)
-	} else {
-		rows, err = g.db.Query(query, args)
-	}
+func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
+	rows, err := g.db.Query(query, args...)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-
-	print()
 
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	out := []map[string]any{}
@@ -80,7 +72,7 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 		}
 
 		if err := rows.Scan(pointers...); err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		row := make(map[string]any, len(cols))
@@ -88,31 +80,28 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 			row[col] = values[i]
 		}
 		out = append(out, row)
+		// Terminate early if we only want one result
+		if one {
+			break
+		}
 	}
 
 	if err := rows.Err(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	print(out[0]["username"])
+	println(out[0]["username"].(string))
 
-	if one {
-		return []map[string]any{out[0]}
-	}
-	return out
+	return out, nil
 }
 
-func get_user_id(username string) int {
-	rows, err := g.db.Query("select user_id from user where username = ?", username)
-	if err != nil {
-		panic(err)
-	}
+func get_user_id(username string) (int, error) {
 	var id int
-	if rows.Next() {
-		rows.Scan(&id)
-		return id
+	err := g.db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
+	if err != nil {
+		return -1, err
 	}
-	return -1
+	return id, nil
 }
 
 func format_datetime(timestamp time.Time) string {
@@ -126,9 +115,10 @@ func gravatar_url(email string, size int) string {
 
 func main() {
 
-	// g.db = connect_db()
+	g.db = connect_db()
 
 	// defer g.db.Close()
-	// query_db("SELECT * FROM user", false)
+	query_db("SELECT * FROM user", false)
+
 	print(gravatar_url("augustbrandt170@gmail.com", 80))
 }
