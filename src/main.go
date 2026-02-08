@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	//"html/template"
+	"net/http"
 	"os"
 	"strings"
 	"time"
-
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -113,12 +115,30 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
 }
 
+func TimelineHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello, World!")
+	println("We got a visitor from: ", r.RemoteAddr)
+    // TODO: Render timeline template 0-0
+}
+
 func main() {
 
 	g.db = connect_db()
-
+	r := mux.NewRouter()
+	r.HandleFunc("/", TimelineHandler).Methods("GET")
+	/*r.HandleFunc("/public", PublicTimelineHandler).Methods("GET")
+	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
+	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
+	r.HandleFunc("/logout", LogoutHandler).Methods("GET")*/
 	// defer g.db.Close()
 	query_db("SELECT * FROM user", false)
 
-	print(gravatar_url("augustbrandt170@gmail.com", 80))
+	println(gravatar_url("augustbrandt170@gmail.com", 80))
+	
+	http.Handle("/", r)
+	http.ListenAndServe(":8080", nil)
 }
