@@ -5,12 +5,38 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 	"strings"
+	"text/template"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+type User struct {
+	UserID   int
+	Username string
+	Email    string
+}
+
+type Message struct {
+	MessageID int
+	Author    *User
+	Text      string
+	PubTime   time.Time
+	Flagged   int
+}
+
+type TimelineData struct {
+	Messages    []*Message
+	User        *User
+	ProfileUser *User // For specific user profile pages e.g. (/helgecph)
+	Follows     bool  // If the logged in user follows the profile user
+	Flashes     []string
+	Endpoint    string
+}
 
 const DATABASE = "/tmp/minitwit.db"
 const PER_PAGE = 30
@@ -18,8 +44,8 @@ const DEBUG = true
 const SECRET_KEY = "development key"
 
 var g struct {
-	db   *sql.DB
-	user string
+	DB   *sql.DB
+	User *User
 }
 
 func connect_db() *sql.DB {
@@ -31,11 +57,13 @@ func connect_db() *sql.DB {
 	return db
 }
 
+var Flashes []string
+
 func init_db() {
 	db := connect_db()
 	defer db.Close()
 
-	g.db = db
+	g.DB = db
 
 	schema, err := os.ReadFile("../schema.sql")
 	if err != nil {
@@ -53,15 +81,13 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 	var err error
 	var rows *sql.Rows
 	if args == nil {
-		rows, err = g.db.Query(query)
+		rows, err = g.DB.Query(query)
 	} else {
-		rows, err = g.db.Query(query, args)
+		rows, err = g.DB.Query(query, args...)
 	}
 	if err != nil {
 		panic(err)
 	}
-
-	print()
 
 	defer rows.Close()
 
@@ -94,8 +120,6 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 		panic(err)
 	}
 
-	print(out[0]["username"])
-
 	if one {
 		return []map[string]any{out[0]}
 	}
@@ -103,7 +127,7 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 }
 
 func get_user_id(username string) int {
-	rows, err := g.db.Query("select user_id from user where username = ?", username)
+	rows, err := g.DB.Query("select user_id from user where username = ?", username)
 	if err != nil {
 		panic(err)
 	}
@@ -124,11 +148,67 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
 }
 
-func main() {
+func createTimelineMessages(queryResult []map[string]any) []*Message {
+	messages := make([]*Message, len(queryResult))
+	for i, message := range queryResult {
+		messageAuthor := &User{
+			UserID:   int(message["author_id"].(int64)),
+			Username: message["username"].(string),
+			Email:    message["email"].(string),
+		}
+		newMessage := &Message{
+			MessageID: int(message["message_id"].(int64)),
+			Author:    messageAuthor,
+			Text:      message["text"].(string),
+			PubTime:   time.Unix(message["pub_date"].(int64), 0),
+			Flagged:   int(message["flagged"].(int64)),
+		}
+		messages[i] = newMessage
+	}
+	return messages
+}
 
-	// g.db = connect_db()
+func timeline(w http.ResponseWriter, r *http.Request) {
+	// TEMPORARY DATABASE CONNECTION CREATION
+	g.DB = connect_db()
+	defer g.DB.Close()
 
-	// defer g.db.Close()
-	// query_db("SELECT * FROM user", false)
-	print(gravatar_url("augustbrandt170@gmail.com", 80))
+	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
+	if g.User == nil {
+		http.Redirect(w, r, "/public", http.StatusOK)
+		return
+	}
+	data := query_db(`
+		SELECT message.*, user.* FROM message, user
+		WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
+			user.user_id = ? OR
+			user.user_id IN (SELECT whom_id FROM follower
+								WHERE who_id = ?)
+		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
+
+	messages := createTimelineMessages(data)
+
+	templateData := TimelineData{
+		Messages:    messages,
+		User:        g.User,
+		ProfileUser: g.User,
+		Flashes:     Flashes,
+	}
+
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		panic(err)
+	}
+	err = tmpl.Execute(w, templateData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
 }
