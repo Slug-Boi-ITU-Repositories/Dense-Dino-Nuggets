@@ -12,6 +12,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -77,23 +78,17 @@ func init_db() {
 }
 
 // THIS FUNCTION IS DISGUSTING
-func query_db(query string, one bool, args ...any) []map[string]any {
-	var err error
-	var rows *sql.Rows
-	if args == nil {
-		rows, err = g.DB.Query(query)
-	} else {
-		rows, err = g.DB.Query(query, args...)
-	}
+func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
+	rows, err := g.DB.Query(query, args...)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	defer rows.Close()
 
 	cols, err := rows.Columns()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	out := []map[string]any{}
@@ -106,7 +101,7 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 		}
 
 		if err := rows.Scan(pointers...); err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		row := make(map[string]any, len(cols))
@@ -114,29 +109,29 @@ func query_db(query string, one bool, args ...any) []map[string]any {
 			row[col] = values[i]
 		}
 		out = append(out, row)
+		// Terminate early if we only want one result
+		if one {
+			break
+		}
 	}
 
 	if err := rows.Err(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if one {
-		return []map[string]any{out[0]}
+		return []map[string]any{out[0]}, nil
 	}
-	return out
+	return out, nil
 }
 
-func get_user_id(username string) int {
-	rows, err := g.DB.Query("select user_id from user where username = ?", username)
-	if err != nil {
-		panic(err)
-	}
+func get_user_id(username string) (int, error) {
 	var id int
-	if rows.Next() {
-		rows.Scan(&id)
-		return id
+	err := g.DB.QueryRow("select user_id from user where username = ?", username).Scan(&id)
+	if err != nil {
+		return -1, err
 	}
-	return -1
+	return id, nil
 }
 
 func format_datetime(timestamp time.Time) string {
@@ -178,14 +173,18 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
-	data := query_db(`
+	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
 			user.user_id = ? OR
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
 		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
-
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
@@ -202,7 +201,9 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		}).
 		ParseFiles("templates/layout.html", "templates/timeline.html")
 	if err != nil {
-		panic(err)
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	err = tmpl.Execute(w, templateData)
 	if err != nil {
@@ -211,4 +212,35 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func main() {
+	// TEMPORARY loading of a user
+	g.DB = connect_db()
+	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	if err != nil {
+		panic(err)
+	}
+	g.DB.Close()
+	g.User = &User{
+		UserID:   int(userData[0]["user_id"].(int64)),
+		Username: userData[0]["username"].(string),
+		Email:    userData[0]["email"].(string),
+	}
+
+	r := mux.NewRouter()
+	r.HandleFunc("/", timeline).Methods("GET")
+	/*r.HandleFunc("/public", PublicTimelineHandler).Methods("GET")
+	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
+	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
+	r.HandleFunc("/logout", LogoutHandler).Methods("GET")*/
+	// defer g.db.Close()
+
+	println(gravatar_url("augustbrandt170@gmail.com", 80))
+
+	http.Handle("/", r)
+	http.ListenAndServe(":8080", nil)
 }
