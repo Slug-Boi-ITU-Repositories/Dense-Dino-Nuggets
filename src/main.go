@@ -12,7 +12,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -214,33 +213,23 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// TEMPORARY loading of a user
+	// mux := http.NewServeMux()
 	g.DB = connect_db()
-	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", false)
 	if err != nil {
 		panic(err)
 	}
-	g.DB.Close()
 	g.User = &User{
 		UserID:   int(userData[0]["user_id"].(int64)),
 		Username: userData[0]["username"].(string),
 		Email:    userData[0]["email"].(string),
 	}
+	g.DB.Close()
 
-	r := mux.NewRouter()
-	r.HandleFunc("/", timeline).Methods("GET")
-	/*r.HandleFunc("/public", PublicTimelineHandler).Methods("GET")
-	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
-	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
-	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
-	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
-	r.HandleFunc("/logout", LogoutHandler).Methods("GET")*/
-	// defer g.db.Close()
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+	http.HandleFunc("/", timeline)
 
-	println(gravatar_url("augustbrandt170@gmail.com", 80))
-
-	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	log.Println("Listening on port 8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
