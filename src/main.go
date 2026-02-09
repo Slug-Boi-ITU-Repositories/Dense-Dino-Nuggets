@@ -213,6 +213,55 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func public(w http.ResponseWriter, r *http.Request) {
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
+	if g.User == nil {
+		http.Redirect(w, r, "/public", http.StatusOK)
+		return
+	}
+
+	data, err := query_db(`
+		SELECT message.*, user.* FROM message, user
+		WHERE message.flagged = 0 AND message.author_id = user.user_id 
+		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	messages := createTimelineMessages(data)
+
+	templateData := TimelineData{
+		Messages:    messages,
+		User:        g.User,
+		ProfileUser: g.User,
+		Flashes:     Flashes,
+	}
+
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, templateData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}	
+
+}
+
 func main() {
 	// TEMPORARY loading of a user
 	g.DB = connect_db()
@@ -229,8 +278,8 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", timeline).Methods("GET")
-	/*r.HandleFunc("/public", PublicTimelineHandler).Methods("GET")
-	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	r.HandleFunc("/public", public).Methods("GET")
+	/*r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
