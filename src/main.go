@@ -225,7 +225,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
-		WHERE message.flagged = 0 AND message.author_id = user.user_id 
+		WHERE message.flagged = 0 AND message.author_id = user.user_id
 		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
 	if err != nil {
 		log.Println(err.Error())
@@ -258,7 +258,76 @@ func public(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}	
+	}
+
+}
+
+func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
+	// TEMPORARY DATABASE CONNECTION CREATION
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Get username from path
+	username := mux.Vars(r)["username"]
+
+	// Check existance of user in database
+	// TODO: there is an error in query_db which causes "return []map[string]any{out[0]}, nil" to be run even though there is 0 rows to return
+	data, err := query_db("select user_id, email from user where username = ?", true, username)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+	userId := data[0]["user_id"].(int64)
+	userEmail := data[0]["email"].(string)
+
+	// debug
+	// print("user found with id ", userId, "\n")
+
+	data, err = query_db(`
+		select message.*, user.* from message, user where
+        user.user_id = message.author_id and user.user_id = ?
+        order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Debug
+	// print("DB successfully queried\n")
+
+	messages := createTimelineMessages(data)
+
+	User := &User{
+		UserID:   int(userId),
+		Username: username,
+		Email:    userEmail,
+	}
+
+	templateData := TimelineData{
+		Messages:    messages,
+		User:        g.User,
+		ProfileUser: User,
+		Flashes:     Flashes,
+	}
+
+	template, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = template.Execute(w, templateData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 }
 
@@ -279,8 +348,8 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
-	/*r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
-	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	/*r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
 	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
