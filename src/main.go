@@ -33,25 +33,26 @@ type Message struct {
 }
 
 type BaseTemplateData struct {
-    User    *User
-    Flashes []string
+	User    *User
+	Flashes []string
 }
 
 type RegisterData struct {
-    BaseTemplateData 
-    Error    string
-    Form     struct {
-        Username string
-        Email    string
-    }
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+		Email    string
+	}
+}
 }
 
 type TimelineData struct {
-    BaseTemplateData
-    Messages    []*Message
-    ProfileUser *User
-    Follows     bool
-    Endpoint    string
+	BaseTemplateData
+	Messages    []*Message
+	ProfileUser *User
+	Follows     bool
+	Endpoint    string
 }
 
 const DATABASE = "/tmp/minitwit.db"
@@ -213,10 +214,10 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
-		 BaseTemplateData: BaseTemplateData{
-            User:    g.User,  // Pass the current user (nil in this case)
-            Flashes: Flashes,
-        },
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
 		Messages:    messages,
 		ProfileUser: g.User,
 	}
@@ -257,10 +258,10 @@ func public(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
-		 BaseTemplateData: BaseTemplateData{
-            User:    g.User,  // Pass the current user (nil in this case)
-            Flashes: Flashes,
-        },
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
 		Messages:    messages,
 		ProfileUser: g.User,
 	}
@@ -321,7 +322,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 		if username == "" {
 			err = errorGen("You have to enter a username")
-		} else if email  == "" || !strings.Contains(email, "@") {
+		} else if email == "" || !strings.Contains(email, "@") {
 			err = errorGen("You have to enter a valid email address")
 		} else if r.FormValue("password") == "" {
 			err = errorGen("You have to enter a password")
@@ -343,27 +344,27 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-		registerData.Error = err.Error()
-		// Parse and execute template
-		tmpl, err := template.New("layout.html").
-			Funcs(template.FuncMap{
-				"gravatar":        gravatar_url,
-				"format_datetime": format_datetime,
-			}).
-			ParseFiles("templates/layout.html", "templates/register.html")
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	registerData.Error = err.Error()
+	// Parse and execute template
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/register.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-		err = tmpl.Execute(w, registerData)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	
+	err = tmpl.Execute(w, registerData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func main() {
