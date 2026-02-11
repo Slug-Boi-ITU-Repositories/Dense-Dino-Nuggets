@@ -32,13 +32,26 @@ type Message struct {
 	Flagged   int
 }
 
+type BaseTemplateData struct {
+    User    *User
+    Flashes []string
+}
+
+type RegisterData struct {
+    BaseTemplateData 
+    Error    string
+    Form     struct {
+        Username string
+        Email    string
+    }
+}
+
 type TimelineData struct {
-	Messages    []*Message
-	User        *User
-	ProfileUser *User // For specific user profile pages e.g. (/helgecph)
-	Follows     bool  // If the logged in user follows the profile user
-	Flashes     []string
-	Endpoint    string
+    BaseTemplateData
+    Messages    []*Message
+    ProfileUser *User
+    Follows     bool
+    Endpoint    string
 }
 
 const DATABASE = "/tmp/minitwit.db"
@@ -136,6 +149,16 @@ func get_user_id(username string) (int, error) {
 	return id, nil
 }
 
+func genereate_password_hash(pass string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(pass), 14)
+	return string(bytes), err
+}
+
+func check_password_hash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 func format_datetime(timestamp time.Time) string {
 	return timestamp.Format("%Y-%m-%d @ %H:%M")
 }
@@ -190,10 +213,12 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
+		 BaseTemplateData: BaseTemplateData{
+            User:    g.User,  // Pass the current user (nil in this case)
+            Flashes: Flashes,
+        },
 		Messages:    messages,
-		User:        g.User,
 		ProfileUser: g.User,
-		Flashes:     Flashes,
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -219,7 +244,6 @@ func public(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-
 	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id 
@@ -233,10 +257,12 @@ func public(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
+		 BaseTemplateData: BaseTemplateData{
+            User:    g.User,  // Pass the current user (nil in this case)
+            Flashes: Flashes,
+        },
 		Messages:    messages,
-		User:        g.User,
 		ProfileUser: g.User,
-		Flashes:     Flashes,
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -315,6 +341,26 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 		print(err.Error())
 	}
+		// Parse and execute template
+		tmpl, err := template.New("layout.html").
+			Funcs(template.FuncMap{
+				"gravatar":        gravatar_url,
+				"format_datetime": format_datetime,
+			}).
+			ParseFiles("templates/layout.html", "templates/register.html")
+		if err != nil {
+			log.Println(err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		err = tmpl.Execute(w, registerData)
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	
 }
 
 func main() {
