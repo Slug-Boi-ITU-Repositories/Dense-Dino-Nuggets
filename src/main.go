@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -253,34 +255,93 @@ func public(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}	
+	}
 
+}
+
+func errorGen(err string) error {
+	return errors.New(err)
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+	if g.User != nil {
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusOK)
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	registerData := RegisterData{
+		Error: "",
+		Form: struct {
+			Username string
+			Email    string
+		}{},
+	}
+
+	var err error
+	if r.Method == "POST" {
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		username := r.FormValue("username")
+		email := r.FormValue("email")
+
+		registerData.Form.Username = username
+		registerData.Form.Email = email
+
+		if username == "" {
+			err = errorGen("You have to enter a username")
+		} else if email  == "" || !strings.Contains(email, "@") {
+			err = errorGen("You have to enter a valid email address")
+		} else if r.FormValue("password") == "" {
+			err = errorGen("You have to enter a password")
+		} else if r.FormValue("password") != r.FormValue("password2") {
+			err = errorGen("The two passwords do not match")
+		} else if val, _ := get_user_id(username); val != -1 {
+			err = errorGen("The username is already taken")
+		} else {
+			pw_hash, err := genereate_password_hash(r.FormValue("password"))
+			if err != nil {
+				panic(err)
+			}
+			g.DB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			//TODO: Add notfication popup here
+			http.Redirect(w, r, "/", http.StatusOK)
+			return
+		}
+		print(err.Error())
+	}
 }
 
 func main() {
 	// TEMPORARY loading of a user
 	g.DB = connect_db()
-	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	_, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
 	if err != nil {
 		panic(err)
 	}
 	g.DB.Close()
-	g.User = &User{
-		UserID:   int(userData[0]["user_id"].(int64)),
-		Username: userData[0]["username"].(string),
-		Email:    userData[0]["email"].(string),
-	}
+
+	// g.User = &User{
+	// 	UserID:   int(userData[0]["user_id"].(int64)),
+	// 	Username: userData[0]["username"].(string),
+	// 	Email:    userData[0]["email"].(string),
+	// }
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
-	/*r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
-	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
-	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
-	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
-	r.HandleFunc("/logout", LogoutHandler).Methods("GET")*/
+	// r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	// r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
+	// r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	r.HandleFunc("/register", register).Methods("GET", "POST")
+	// r.HandleFunc("/logout", LogoutHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
