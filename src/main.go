@@ -389,7 +389,7 @@ func main() {
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	// r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	// r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	// r.HandleFunc("/logout", LogoutHandler).Methods("GET")
 	// defer g.db.Close()
