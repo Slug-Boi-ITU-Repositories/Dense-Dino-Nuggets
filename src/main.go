@@ -334,13 +334,16 @@ func register(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			g.DB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			_, err = g.DB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			if err != nil {
+				panic(err)
+			}
 			//TODO: Add notfication popup here
-			http.Redirect(w, r, "/", http.StatusOK)
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		print(err.Error())
 	}
+		registerData.Error = err.Error()
 		// Parse and execute template
 		tmpl, err := template.New("layout.html").
 			Funcs(template.FuncMap{
