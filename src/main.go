@@ -217,11 +217,6 @@ func public(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-	if g.User == nil {
-		http.Redirect(w, r, "/public", http.StatusOK)
-		return
-	}
 
 	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
