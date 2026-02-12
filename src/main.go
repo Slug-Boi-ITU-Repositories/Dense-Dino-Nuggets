@@ -291,7 +291,8 @@ func errorGen(err string) error {
 
 func register(w http.ResponseWriter, r *http.Request) {
 	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusOK)
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusSeeOther)
+		return
 	}
 
 	g.DB = connect_db()
