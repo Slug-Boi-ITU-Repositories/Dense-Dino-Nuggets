@@ -45,6 +45,13 @@ type RegisterData struct {
 		Email    string
 	}
 }
+
+type LoginData struct {
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+	}
 }
 
 type TimelineData struct {
@@ -288,6 +295,87 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 func errorGen(err string) error {
 	return errors.New(err)
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	if g.User != nil {
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusOK)
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	loginData := LoginData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User,
+			Flashes: []string{},
+		},
+		Error: "",
+		Form: struct {
+			Username string
+		}{},
+	}
+
+	var err error
+	if r.Method == "POST" {
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+
+		data, err := g.DB.Query("SELECT * FROM user WHERE username = ?", username)
+		if err != nil {
+			panic(err)
+		}
+
+		user := User{}
+		var password_hash string
+
+		data.Next()
+		err = data.Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		if err != nil {
+			// This line is kinda redudundant since we override it based on what was wrong later down
+			loginData.Error = "Invalid username or password"
+		} 
+		
+		// THIS IS SO BAD FOR SECURITY HOLY HELL
+		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
+		if user.Username == "" {
+			loginData.Error = "Invalid username"
+		} else if !check_password_hash(password, password_hash) {
+			loginData.Error = "Invalid password "
+		} else {
+			//TODO: Add flash login message
+			g.User = &user
+			http.Redirect(w, r, "/", http.StatusFound)
+		}
+
+	}
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/login.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.Execute(w, loginData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err != nil {
+		panic(err)
+	}
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
