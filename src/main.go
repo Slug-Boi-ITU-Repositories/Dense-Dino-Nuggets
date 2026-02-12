@@ -331,6 +331,10 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func main() {
 	// TEMPORARY loading of a user
 	g.DB = connect_db()
@@ -349,8 +353,8 @@ func main() {
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
 	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
-	/*r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	/*r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
 	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
 	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
