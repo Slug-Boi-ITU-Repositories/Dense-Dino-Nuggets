@@ -300,6 +300,7 @@ func errorGen(err string) error {
 func login(w http.ResponseWriter, r *http.Request) {
 	if g.User != nil {
 		http.Redirect(w, r, "/"+g.User.Username, http.StatusOK)
+		return
 	}
 
 	g.DB = connect_db()
@@ -326,17 +327,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-
-		data, err := g.DB.Query("SELECT * FROM user WHERE username = ?", username)
-		if err != nil {
-			panic(err)
-		}
-
+		
 		user := User{}
 		var password_hash string
 
-		data.Next()
-		err = data.Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		err := g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
 		if err != nil {
 			// This line is kinda redudundant since we override it based on what was wrong later down
 			loginData.Error = "Invalid username or password"
@@ -352,6 +347,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 			//TODO: Add flash login message
 			g.User = &user
 			http.Redirect(w, r, "/", http.StatusFound)
+			return
 		}
 
 	}
