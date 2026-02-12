@@ -55,7 +55,6 @@ func connect_db() *sql.DB {
 	if err != nil {
 		panic(err)
 	}
-
 	return db
 }
 
@@ -67,7 +66,7 @@ func init_db() {
 
 	g.DB = db
 
-	schema, err := os.ReadFile("../schema.sql")
+	schema, err := os.ReadFile("schema.sql")
 	if err != nil {
 		panic(err)
 	}
@@ -76,7 +75,24 @@ func init_db() {
 	if err != nil {
 		panic(err)
 	}
+	// TEMPORARY: Insert a user and a message for testing
+	_, err = db.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", "testuser", "testuser@hotmail.com", "testpassword")
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, ?)", 1, "Hello world!", time.Now().Unix(), 0)
+	if err != nil {
+		panic(err)
+	}
 }
+
+func ensureDB() {
+	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
+		fmt.Println("Database does not exist. Initializing...")
+		init_db()
+	}
+}
+
 
 // THIS FUNCTION IS DISGUSTING
 func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
@@ -260,8 +276,9 @@ func public(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// TEMPORARY loading of a user
+	ensureDB()
 	g.DB = connect_db()
+	// TEMPORARY loading of a user
 	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
 	if err != nil {
 		panic(err)
