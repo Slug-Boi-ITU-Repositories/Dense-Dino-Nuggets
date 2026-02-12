@@ -369,9 +369,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err != nil {
-		panic(err)
-	}
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
