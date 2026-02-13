@@ -529,7 +529,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	registerData.Error = err.Error()
 	// Parse and execute template
 	tmpl, err := template.New("layout.html").
 		Funcs(template.FuncMap{
