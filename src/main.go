@@ -359,7 +359,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	// There is a flash message in the method here. TODO later
 	// flash('You are now following "%s"' % username)
 	url := "/" + username
-	http.Redirect(w, r, url, http.StatusOK)
+	http.Redirect(w, r, url, http.StatusFound)
 	return
 
 }
