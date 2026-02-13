@@ -309,6 +309,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		User:        g.User,
 		ProfileUser: User,
 		Flashes:     Flashes,
+		Endpoint: "user_timeline",
 	}
 
 	template, err := template.New("layout.html").
