@@ -489,7 +489,17 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)", 
 				   g.User.UserID, messageText, int(time.Now().Unix()))
 	}
-	http.Redirect(w, r, "/", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusFound)  
+}
+
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	//TODO: Add logout message
+	if g.User == nil {
+		http.Error(w, "No user is logged in", http.StatusConflict)
+		return
+	}
+	g.User = nil
+	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
 func main() {
@@ -516,7 +526,7 @@ func main() {
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
-	// r.HandleFunc("/logout", LogoutHandler).Methods("GET")
+	r.HandleFunc("/logout", logoutHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
