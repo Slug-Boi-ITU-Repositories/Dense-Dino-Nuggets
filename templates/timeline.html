@@ -1,51 +1,44 @@
-{{define "title"}}
-    {{if eq .Endpoint "public_timeline"}}
-        Public Timeline
-    {{else if eq .Endpoint "user_timeline"}}
-        {{.ProfileUser.Username}}'s Timeline
-    {{else}}
-        My Timeline
+{{define "title"}} {{if eq .Endpoint "public_timeline"}} Public Timeline {{else
+if eq .Endpoint "user_timeline"}} {{.ProfileUser.Username}}'s Timeline {{else}}
+My Timeline {{end}} {{end}} {{define "body"}}
+<h2>{{template "title" .}}</h2>
+{{if .User}} {{if eq .Endpoint "user_timeline"}}
+<div class="followstatus">
+    {{if eq .User.UserID .ProfileUser.UserID}} This is you! {{else if .Follows}}
+    You are currently following this user.
+    <a class="unfollow" href="/{{.ProfileUser.Username}}/unfollow"
+        >Unfollow user</a
+    >. {{else}} You are not yet following this user.
+    <a class="follow" href="/{{.ProfileUser.Username}}/follow">Follow user</a>.
     {{end}}
-{{end}}
-
-{{define "body"}}
-    <h2>{{template "title" .}}</h2>
-    {{if .User}}
-        {{if eq .Endpoint "user_timeline"}}
-            <div class=followstatus>
-                {{if eq .User.UserID .ProfileUser.UserID}}
-                    This is you!
-                {{else if .Followed}}
-                    You are currently following this user.
-                    <a class=unfollow href="/{{.ProfileUser.Username}}/unfollow">Unfollow user</a>.
-                {{else}}
-                    You are not yet following this user.
-                    <a class=follow href="/{{.ProfileUser.Username}}/follow">Follow user</a>.
-                {{end}}
-            </div>
-        {{else if eq .Endpoint "timeline"}}
-            <div class=twitbox>
-                <h3>What's on your mind {{.User.Username}}?</h3>
-                <form action="/add_message" method=POST>
-                    <p><input type=text name=text size="60"><!--
-                    --><input type=submit value="Share">
-                </form>
-            </div>
-        {{end}}
+</div>
+{{else if eq .Endpoint "timeline"}}
+<div class="twitbox">
+    <h3>What's on your mind {{.User.Username}}?</h3>
+    <form action="/add_message" method="POST">
+        <p>
+            <input type="text" name="text" size="60" /><!--
+                    --><input type="submit" value="Share" />
+        </p>
+    </form>
+</div>
+{{end}} {{end}}
+<ul class="messages">
+    {{if .Messages}} {{range .Messages}}
+    <li>
+        <img src="{{gravatar .Author.Email 48}}" />
+        <p>
+            <strong
+                ><a href="/{{.Author.Username}}"
+                    >{{.Author.Username}}</a
+                ></strong
+            >
+            {{.Text}}
+            <small>&mdash; {{format_datetime .PubTime}}</small>
+        </p>
+    </li>
+    {{end}} {{else}}
+    <li><em>There's no message so far.</em></li>
     {{end}}
-    <ul class=messages>
-        {{if .Messages}}
-            {{range .Messages}}
-                <li>
-                    <img src="{{gravatar .Author.Email 48}}"><p>
-                        <strong><a href="/{{.Author.Username}}">{{.Author.Username}}</a></strong>
-                        {{.Text}}
-                        <small>&mdash; {{format_datetime .PubTime}}</small>
-                    </p>
-                </li>
-            {{end}}
-        {{else}}
-            <li><em>There's no message so far.</em></li>
-        {{end}}
-    </ul>
+</ul>
 {{end}}
