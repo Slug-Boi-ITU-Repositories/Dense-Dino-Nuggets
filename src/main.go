@@ -468,6 +468,16 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	//TODO: Add logout message
+	if g.User == nil {
+		http.Error(w, "No user is logged in", http.StatusConflict)
+		return
+	}
+	g.User = nil
+	http.Redirect(w, r, "/public", http.StatusFound)
+}
+
 func main() {
 	ensureDB()
 	g.DB = connect_db()
@@ -490,9 +500,9 @@ func main() {
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	// r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	r.HandleFunc("/login", login).Methods("GET", "POST")
-	r.HandleFunc("/register", register).Methods("GET", "POST")
-	// r.HandleFunc("/logout", LogoutHandler).Methods("GET")
+	// r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	// r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
+	r.HandleFunc("/logout", logoutHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
