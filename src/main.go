@@ -187,6 +187,7 @@ func check_password_hash(password, hash string) bool {
 }
 
 func format_datetime(timestamp time.Time) string {
+	// This example time is the reference time for golang time formatting
 	return timestamp.Format("2006-01-02 @ 15:04")
 }
 
