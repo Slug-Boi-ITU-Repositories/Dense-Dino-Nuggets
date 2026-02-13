@@ -187,7 +187,7 @@ func check_password_hash(password, hash string) bool {
 }
 
 func format_datetime(timestamp time.Time) string {
-	return timestamp.Format("%Y-%m-%d @ %H:%M")
+	return timestamp.Format("2006-01-02 @ 15:04")
 }
 
 func gravatar_url(email string, size int) string {
