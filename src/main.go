@@ -588,7 +588,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Adds the current user as follower of the given user.
 func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
-	print("1")
 	g.DB = connect_db()
 	defer g.DB.Close()
 
@@ -606,7 +605,6 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
-	print("2")
 	//Insert follow into database
 	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
 	if err != nil {
@@ -616,7 +614,6 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// There is a flash message in the method here. TODO later
 	// flash('You are now following "%s"' % username)
-	print("3")
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
 	return
