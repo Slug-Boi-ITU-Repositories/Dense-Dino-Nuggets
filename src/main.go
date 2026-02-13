@@ -468,6 +468,30 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func addMessage(w http.ResponseWriter, r *http.Request) {
+	if g.User == nil {
+		log.Println("Tried to add message but no user is set")
+		http.Error(w, "No user is logged in", http.StatusUnauthorized)
+		return
+	}
+
+	// TEMPORARY DATABASE CONNECTION
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	messageText := r.FormValue("text")
+	if messageText != "" {
+		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)", 
+				   g.User.UserID, messageText, int(time.Now().Unix()))
+	}
+	http.Redirect(w, r, "/", http.StatusFound)  
+}
+
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO: Add logout message
 	if g.User == nil {
@@ -499,9 +523,9 @@ func main() {
 	// r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
-	// r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	// r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
-	// r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
+	r.HandleFunc("/add_message", addMessage).Methods("POST")
+	r.HandleFunc("/login", login).Methods("GET", "POST")
+	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logoutHandler).Methods("GET")
 	// defer g.db.Close()
 
