@@ -158,7 +158,7 @@ func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 	}
 
 	if len(out) == 0 {
-		return nil, errors.New("Query returned no rows")
+		return nil, sql.ErrNoRows
 	}
 
 	if one {
@@ -187,7 +187,8 @@ func check_password_hash(password, hash string) bool {
 }
 
 func format_datetime(timestamp time.Time) string {
-	return timestamp.Format("%Y-%m-%d @ %H:%M")
+	// This example time is the reference time for golang time formatting
+	return timestamp.Format("2006-01-02 @ 15:04")
 }
 
 func gravatar_url(email string, size int) string {
@@ -232,7 +233,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
 		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -634,6 +635,7 @@ func main() {
 	// }
 
 	r := mux.NewRouter()
+	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
 	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
@@ -642,6 +644,7 @@ func main() {
 	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logoutHandler).Methods("GET")
+	r.PathPrefix("/static/").Handler(s).Methods("GET")
 	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// defer g.db.Close()
 
