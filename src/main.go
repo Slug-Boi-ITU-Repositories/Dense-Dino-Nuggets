@@ -1,9 +1,11 @@
+
 package main
 
 import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -30,12 +33,33 @@ type Message struct {
 	Flagged   int
 }
 
+type BaseTemplateData struct {
+	User    *User
+	Flashes []string
+}
+
+type RegisterData struct {
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+		Email    string
+	}
+}
+
+type LoginData struct {
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+	}
+}
+
 type TimelineData struct {
+	BaseTemplateData
 	Messages    []*Message
-	User        *User
-	ProfileUser *User // For specific user profile pages e.g. (/helgecph)
-	Follows     bool  // If the logged in user follows the profile user
-	Flashes     []string
+	ProfileUser *User
+	Follows     bool
 	Endpoint    string
 }
 
@@ -54,7 +78,6 @@ func connect_db() *sql.DB {
 	if err != nil {
 		panic(err)
 	}
-
 	return db
 }
 
@@ -66,7 +89,7 @@ func init_db() {
 
 	g.DB = db
 
-	schema, err := os.ReadFile("../schema.sql")
+	schema, err := os.ReadFile("schema.sql")
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +98,24 @@ func init_db() {
 	if err != nil {
 		panic(err)
 	}
+	// TEMPORARY: Insert a user and a message for testing
+	_, err = db.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", "testuser", "testuser@hotmail.com", "testpassword")
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, ?)", 1, "Hello world!", time.Now().Unix(), 0)
+	if err != nil {
+		panic(err)
+	}
 }
+
+func ensureDB() {
+	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
+		fmt.Println("Database does not exist. Initializing...")
+		init_db()
+	}
+}
+
 
 // THIS FUNCTION IS DISGUSTING
 func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
@@ -134,6 +174,16 @@ func get_user_id(username string) (int, error) {
 	return id, nil
 }
 
+func genereate_password_hash(pass string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(pass), 14)
+	return string(bytes), err
+}
+
+func check_password_hash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
+
 func format_datetime(timestamp time.Time) string {
 	return timestamp.Format("%Y-%m-%d @ %H:%M")
 }
@@ -148,13 +198,13 @@ func createTimelineMessages(queryResult []map[string]any) []*Message {
 	for i, message := range queryResult {
 		messageAuthor := &User{
 			UserID:   int(message["author_id"].(int64)),
-			Username: message["username"].(string),
-			Email:    message["email"].(string),
+			Username: template.HTMLEscapeString(message["username"].(string)),
+			Email:    template.HTMLEscapeString(message["email"].(string)),
 		}
 		newMessage := &Message{
 			MessageID: int(message["message_id"].(int64)),
 			Author:    messageAuthor,
-			Text:      message["text"].(string),
+			Text:      template.HTMLEscapeString(message["text"].(string)),
 			PubTime:   time.Unix(message["pub_date"].(int64), 0),
 			Flagged:   int(message["flagged"].(int64)),
 		}
@@ -188,10 +238,13 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
 		Messages:    messages,
-		User:        g.User,
 		ProfileUser: g.User,
-		Flashes:     Flashes,
+		Endpoint:    "timeline",
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -213,6 +266,208 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func public(w http.ResponseWriter, r *http.Request) {
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	data, err := query_db(`
+		SELECT message.*, user.* FROM message, user
+		WHERE message.flagged = 0 AND message.author_id = user.user_id 
+		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	messages := createTimelineMessages(data)
+
+	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
+		Messages:    messages,
+		ProfileUser: g.User,
+		Endpoint: "public_timeline",
+	}
+
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, templateData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func errorGen(err string) error {
+	return errors.New(err)
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	if g.User != nil {
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusFound)
+		return
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	loginData := LoginData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User,
+			Flashes: []string{},
+		},
+		Error: "",
+		Form: struct {
+			Username string
+		}{},
+	}
+
+	var err error
+	if r.Method == "POST" {
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+		
+		user := User{}
+		var password_hash string
+
+		err := g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		if err != nil {
+			// This line is kinda redudundant since we override it based on what was wrong later down
+			loginData.Error = "Invalid username or password"
+		} 
+		
+		// THIS IS SO BAD FOR SECURITY HOLY HELL
+		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
+		if user.Username == "" {
+			loginData.Error = "Invalid username"
+		} else if !check_password_hash(password, password_hash) {
+			loginData.Error = "Invalid password "
+		} else {
+			//TODO: Add flash login message
+			g.User = &user
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+
+	}
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/login.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.Execute(w, loginData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+	if g.User != nil {
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusSeeOther)
+		return
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	registerData := RegisterData{
+		Error: "",
+		Form: struct {
+			Username string
+			Email    string
+		}{},
+	}
+
+	var err error
+	if r.Method == "POST" {
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		username := r.FormValue("username")
+		email := r.FormValue("email")
+
+		registerData.Form.Username = username
+		registerData.Form.Email = email
+
+		if username == "" {
+			err = errorGen("You have to enter a username")
+		} else if email == "" || !strings.Contains(email, "@") {
+			err = errorGen("You have to enter a valid email address")
+		} else if r.FormValue("password") == "" {
+			err = errorGen("You have to enter a password")
+		} else if r.FormValue("password") != r.FormValue("password2") {
+			err = errorGen("The two passwords do not match")
+		} else if val, _ := get_user_id(username); val != -1 {
+			err = errorGen("The username is already taken")
+		} else {
+			pw_hash, err := genereate_password_hash(r.FormValue("password"))
+			if err != nil {
+				panic(err)
+			}
+			_, err = g.DB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			if err != nil {
+				panic(err)
+			}
+			//TODO: Add notfication popup here
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+	}
+	registerData.Error = err.Error()
+	// Parse and execute template
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/register.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.Execute(w, registerData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	//TODO: Add logout message
 	if g.User == nil {
@@ -224,22 +479,23 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// TEMPORARY loading of a user
+	ensureDB()
 	g.DB = connect_db()
-	userData, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	_, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
 	if err != nil {
 		panic(err)
 	}
 	g.DB.Close()
-	g.User = &User{
-		UserID:   int(userData[0]["user_id"].(int64)),
-		Username: userData[0]["username"].(string),
-		Email:    userData[0]["email"].(string),
-	}
+
+	// g.User = &User{
+	// 	UserID:   int(userData[0]["user_id"].(int64)),
+	// 	Username: userData[0]["username"].(string),
+	// 	Email:    userData[0]["email"].(string),
+	// }
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", timeline).Methods("GET")
-	// r.HandleFunc("/public", PublicTimelineHandler).Methods("GET")
+	r.HandleFunc("/public", public).Methods("GET")
 	// r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
