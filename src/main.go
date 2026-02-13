@@ -34,25 +34,33 @@ type Message struct {
 }
 
 type BaseTemplateData struct {
-    User    *User
-    Flashes []string
+	User    *User
+	Flashes []string
 }
 
 type RegisterData struct {
-    BaseTemplateData 
-    Error    string
-    Form     struct {
-        Username string
-        Email    string
-    }
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+		Email    string
+	}
+}
+
+type LoginData struct {
+	BaseTemplateData
+	Error string
+	Form  struct {
+		Username string
+	}
 }
 
 type TimelineData struct {
-    BaseTemplateData
-    Messages    []*Message
-    ProfileUser *User
-    Follows     bool
-    Endpoint    string
+	BaseTemplateData
+	Messages    []*Message
+	ProfileUser *User
+	Follows     bool
+	Endpoint    string
 }
 
 const DATABASE = "/tmp/minitwit.db"
@@ -230,10 +238,10 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
-		 BaseTemplateData: BaseTemplateData{
-            User:    g.User,  // Pass the current user (nil in this case)
-            Flashes: Flashes,
-        },
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
 		Messages:    messages,
 		ProfileUser: g.User,
 		Endpoint:    "timeline",
@@ -275,10 +283,10 @@ func public(w http.ResponseWriter, r *http.Request) {
 	messages := createTimelineMessages(data)
 
 	templateData := TimelineData{
-		 BaseTemplateData: BaseTemplateData{
-            User:    g.User,  // Pass the current user (nil in this case)
-            Flashes: Flashes,
-        },
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
 		Messages:    messages,
 		ProfileUser: g.User,
 		Endpoint: "public_timeline",
@@ -306,6 +314,80 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 func errorGen(err string) error {
 	return errors.New(err)
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	if g.User != nil {
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusFound)
+		return
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	loginData := LoginData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User,
+			Flashes: []string{},
+		},
+		Error: "",
+		Form: struct {
+			Username string
+		}{},
+	}
+
+	var err error
+	if r.Method == "POST" {
+		err = r.ParseForm()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+		
+		user := User{}
+		var password_hash string
+
+		err := g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		if err != nil {
+			// This line is kinda redudundant since we override it based on what was wrong later down
+			loginData.Error = "Invalid username or password"
+		} 
+		
+		// THIS IS SO BAD FOR SECURITY HOLY HELL
+		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
+		if user.Username == "" {
+			loginData.Error = "Invalid username"
+		} else if !check_password_hash(password, password_hash) {
+			loginData.Error = "Invalid password "
+		} else {
+			//TODO: Add flash login message
+			g.User = &user
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+
+	}
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/login.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = tmpl.Execute(w, loginData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -341,7 +423,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 		if username == "" {
 			err = errorGen("You have to enter a username")
-		} else if email  == "" || !strings.Contains(email, "@") {
+		} else if email == "" || !strings.Contains(email, "@") {
 			err = errorGen("You have to enter a valid email address")
 		} else if r.FormValue("password") == "" {
 			err = errorGen("You have to enter a password")
@@ -363,27 +445,27 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-		registerData.Error = err.Error()
-		// Parse and execute template
-		tmpl, err := template.New("layout.html").
-			Funcs(template.FuncMap{
-				"gravatar":        gravatar_url,
-				"format_datetime": format_datetime,
-			}).
-			ParseFiles("templates/layout.html", "templates/register.html")
-		if err != nil {
-			log.Println(err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+	registerData.Error = err.Error()
+	// Parse and execute template
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+		}).
+		ParseFiles("templates/layout.html", "templates/register.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-		err = tmpl.Execute(w, registerData)
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	
+	err = tmpl.Execute(w, registerData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 }
 
 func main() {
@@ -408,7 +490,7 @@ func main() {
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	// r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	// r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
+	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	// r.HandleFunc("/logout", LogoutHandler).Methods("GET")
 	// defer g.db.Close()
