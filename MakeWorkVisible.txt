@@ -1,2 +1,6 @@
+13/02
+We have merged a lot of PRs and resolved a lot of issues, 
+regarding the refactoring of minitwit.
+
 06/02
 We have started Refactoring minitwit from Python to Golang.
