@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -116,7 +115,6 @@ func ensureDB() {
 	}
 }
 
-
 // THIS FUNCTION IS DISGUSTING
 func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 	rows, err := g.DB.Query(query, args...)
@@ -157,6 +155,10 @@ func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	if len(out) == 0 {
+		return nil, errors.New("Query returned no rows")
 	}
 
 	if one {
@@ -272,7 +274,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
-		WHERE message.flagged = 0 AND message.author_id = user.user_id 
+		WHERE message.flagged = 0 AND message.author_id = user.user_id
 		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
 	if err != nil {
 		log.Println(err.Error())
@@ -289,7 +291,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		},
 		Messages:    messages,
 		ProfileUser: g.User,
-		Endpoint: "public_timeline",
+		Endpoint:    "public_timeline",
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -310,6 +312,88 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+}
+
+func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
+	// TEMPORARY DATABASE CONNECTION CREATION
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Get username from path
+	username := mux.Vars(r)["username"]
+
+	// Check existance of user in database
+	data, err := query_db("select user_id, email from user where username = ?", true, username)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+	}
+	userId := data[0]["user_id"].(int64)
+	userEmail := data[0]["email"].(string)
+
+	// Get messages data
+	data, err = query_db(`
+		select message.*, user.* from message, user where
+        user.user_id = message.author_id and user.user_id = ?
+        order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	messages := createTimelineMessages(data)
+
+	User := &User{
+		UserID:   int(userId),
+		Username: username,
+		Email:    userEmail,
+	}
+
+	follows := false
+	if g.User != nil {
+		queryCheckUserIsFollowed, err := query_db(
+			`select 1 from follower
+		where follower.who_id = ?
+		and follower.whom_id = ?`, true,
+			g.User.UserID, User.UserID,
+		)
+
+		if err == nil {
+			if queryCheckUserIsFollowed[0]["user_id"] != nil {
+				follows = true
+			}
+		}
+	}
+
+	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    g.User, // Pass the current user (nil in this case)
+			Flashes: Flashes,
+		},
+		Messages:    messages,
+		ProfileUser: User,
+		Endpoint:    "user_timeline",
+		Follows:     follows,
+	}
+
+	template, err := template.New("layout.html").Funcs(template.FuncMap{
+		"gravatar":        gravatar_url,
+		"format_datetime": format_datetime,
+	}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = template.Execute(w, templateData)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func errorGen(err string) error {
@@ -346,7 +430,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		
+
 		user := User{}
 		var password_hash string
 
@@ -354,8 +438,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// This line is kinda redudundant since we override it based on what was wrong later down
 			loginData.Error = "Invalid username or password"
-		} 
-		
+		}
+
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
 		if user.Username == "" {
@@ -445,7 +529,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	registerData.Error = err.Error()
 	// Parse and execute template
 	tmpl, err := template.New("layout.html").
 		Funcs(template.FuncMap{
@@ -486,10 +569,10 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	messageText := r.FormValue("text")
 	if messageText != "" {
-		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)", 
-				   g.User.UserID, messageText, int(time.Now().Unix()))
+		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
+			g.User.UserID, messageText, int(time.Now().Unix()))
 	}
-	http.Redirect(w, r, "/", http.StatusFound)  
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -521,7 +604,6 @@ func main() {
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
-	// r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
@@ -529,6 +611,7 @@ func main() {
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logoutHandler).Methods("GET")
 	r.PathPrefix("/static/").Handler(s).Methods("GET")
+	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
