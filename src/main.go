@@ -277,7 +277,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id
 		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -337,7 +337,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		select message.*, user.* from message, user where
         user.user_id = message.author_id and user.user_id = ?
         order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -588,12 +588,12 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ensureDB()
-	g.DB = connect_db()
-	_, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
-	if err != nil {
-		panic(err)
-	}
-	g.DB.Close()
+	// g.DB = connect_db()
+	// _, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// g.DB.Close()
 
 	// g.User = &User{
 	// 	UserID:   int(userData[0]["user_id"].(int64)),
