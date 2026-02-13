@@ -588,6 +588,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Adds the current user as follower of the given user.
 func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	print("1")
 	g.DB = connect_db()
 	defer g.DB.Close()
 
@@ -596,6 +597,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
+
 	// Get id of user to follow
 	username := mux.Vars(r)["username"]
 	whom_id, err := get_user_id(username)
@@ -604,6 +606,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
+	print("2")
 	//Insert follow into database
 	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
 	if err != nil {
@@ -613,6 +616,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// There is a flash message in the method here. TODO later
 	// flash('You are now following "%s"' % username)
+	print("3")
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
 	return
@@ -638,7 +642,7 @@ func main() {
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
-	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
