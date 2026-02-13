@@ -601,6 +601,7 @@ func main() {
 	// }
 
 	r := mux.NewRouter()
+	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
 	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
@@ -609,6 +610,7 @@ func main() {
 	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logoutHandler).Methods("GET")
+	r.PathPrefix("/static/").Handler(s).Methods("GET")
 	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// defer g.db.Close()
 
