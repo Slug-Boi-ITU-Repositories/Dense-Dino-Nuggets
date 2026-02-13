@@ -257,6 +257,30 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func addMessage(w http.ResponseWriter, r *http.Request) {
+	if g.User == nil {
+		log.Println("Tried to add message but no user is set")
+		http.Error(w, "No user is logged in", http.StatusUnauthorized)
+		return
+	}
+
+	// TEMPORARY DATABASE CONNECTION
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	messageText := r.FormValue("text")
+	if messageText != "" {
+		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)", 
+				   g.User.UserID, messageText, int(time.Now().Unix()))
+	}
+	http.Redirect(w, r, "/timeline", http.StatusFound)
+}
+
 func main() {
 	// TEMPORARY loading of a user
 	g.DB = connect_db()
