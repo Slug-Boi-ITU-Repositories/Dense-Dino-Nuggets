@@ -318,7 +318,7 @@ func errorGen(err string) error {
 
 func login(w http.ResponseWriter, r *http.Request) {
 	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusOK)
+		http.Redirect(w, r, "/"+g.User.Username, http.StatusFound)
 		return
 	}
 
