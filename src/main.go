@@ -198,13 +198,13 @@ func createTimelineMessages(queryResult []map[string]any) []*Message {
 	for i, message := range queryResult {
 		messageAuthor := &User{
 			UserID:   int(message["author_id"].(int64)),
-			Username: message["username"].(string),
-			Email:    message["email"].(string),
+			Username: template.HTMLEscapeString(message["username"].(string)),
+			Email:    template.HTMLEscapeString(message["email"].(string)),
 		}
 		newMessage := &Message{
 			MessageID: int(message["message_id"].(int64)),
 			Author:    messageAuthor,
-			Text:      message["text"].(string),
+			Text:      template.HTMLEscapeString(message["text"].(string)),
 			PubTime:   time.Unix(message["pub_date"].(int64), 0),
 			Flagged:   int(message["flagged"].(int64)),
 		}
