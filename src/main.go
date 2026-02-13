@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -92,7 +91,6 @@ func ensureDB() {
 		init_db()
 	}
 }
-
 
 // THIS FUNCTION IS DISGUSTING
 func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
@@ -252,7 +250,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		User:        g.User,
 		ProfileUser: g.User,
 		Flashes:     Flashes,
-		Endpoint: "public_timeline",
+		Endpoint:    "public_timeline",
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -293,9 +291,6 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	userId := data[0]["user_id"].(int64)
 	userEmail := data[0]["email"].(string)
 
-	// debug
-	// print("user found with id ", userId, "\n")
-
 	data, err = query_db(`
 		select message.*, user.* from message, user where
         user.user_id = message.author_id and user.user_id = ?
@@ -306,9 +301,6 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Debug
-	// print("DB successfully queried\n")
-
 	messages := createTimelineMessages(data)
 
 	User := &User{
@@ -317,12 +309,30 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		Email:    userEmail,
 	}
 
+	follows := false
+	queryCheckUserIsFollowed, err := query_db(
+		`select 1 from follower
+		where follower.who_id = ?
+		and follower.whom_id = ?`, true,
+		g.User.UserID, User.UserID,
+	)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if queryCheckUserIsFollowed[0]["user_id"] != nil {
+		follows = true
+	}
+
 	templateData := TimelineData{
 		Messages:    messages,
 		User:        g.User,
 		ProfileUser: User,
 		Flashes:     Flashes,
-		Endpoint: "user_timeline",
+		Endpoint:    "user_timeline",
+		Follows:     follows,
 	}
 
 	template, err := template.New("layout.html").
@@ -342,7 +352,6 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 }
 
 func main() {
