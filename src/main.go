@@ -321,14 +321,11 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		and follower.whom_id = ?`, true,
 		g.User.UserID, User.UserID,
 	)
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
-	if queryCheckUserIsFollowed[0]["user_id"] != nil {
-		follows = true
+	if err == nil {
+		if queryCheckUserIsFollowed[0]["user_id"] != nil {
+			follows = true
+		}
 	}
 
 	templateData := TimelineData{
