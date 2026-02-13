@@ -235,6 +235,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		User:        g.User,
 		ProfileUser: g.User,
 		Flashes:     Flashes,
+		Endpoint: "public_timeline"
 	}
 
 	tmpl, err := template.New("layout.html").
