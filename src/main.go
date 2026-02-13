@@ -192,6 +192,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		User:        g.User,
 		ProfileUser: g.User,
 		Flashes:     Flashes,
+		Endpoint:    "timeline",
 	}
 
 	tmpl, err := template.New("layout.html").
@@ -216,7 +217,6 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 func public(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
-
 
 	data, err := query_db(`
 		SELECT message.*, user.* FROM message, user
@@ -253,7 +253,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}	
+	}
 
 }
 
