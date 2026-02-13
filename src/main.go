@@ -278,7 +278,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)", 
 				   g.User.UserID, messageText, int(time.Now().Unix()))
 	}
-	http.Redirect(w, r, "/timeline", http.StatusFound)
+	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func main() {
