@@ -638,7 +638,7 @@ func main() {
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
-	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
 	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
@@ -646,12 +646,6 @@ func main() {
 	r.HandleFunc("/logout", logoutHandler).Methods("GET")
 	r.PathPrefix("/static/").Handler(s).Methods("GET")
 	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
-	/*r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
-	r.HandleFunc("/add_message", AddMessageHandler).Methods("POST")
-	r.HandleFunc("/login", LoginHandler).Methods("GET", "POST")
-	r.HandleFunc("/register", RegisterHandler).Methods("GET", "POST")
-	r.HandleFunc("/logout", LogoutHandler).Methods("GET")*/
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
