@@ -158,7 +158,7 @@ func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 	}
 
 	if len(out) == 0 {
-		return nil, errors.New("Query returned no rows")
+		return nil, sql.ErrNoRows
 	}
 
 	if one {
@@ -233,7 +233,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
 		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
