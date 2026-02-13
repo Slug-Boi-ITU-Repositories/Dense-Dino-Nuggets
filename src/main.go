@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -132,6 +133,10 @@ func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 
 	if err := rows.Err(); err != nil {
 		return nil, err
+	}
+
+	if len(out) == 0 {
+		return nil, errors.New("Query returned no rows")
 	}
 
 	if one {
