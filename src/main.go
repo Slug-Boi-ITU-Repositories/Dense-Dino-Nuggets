@@ -95,6 +95,8 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 	return flashes, nil
 }
 
+
+
 func init_db() {
 	db := connect_db()
 	defer db.Close()
@@ -477,9 +479,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
 		if user.Username == "" {
-			//loginData.Error = "Invalid username"
+			err = errors.New("Invalid username")
+			session.AddFlash("Invalid username")
+			session.Save(r,w)
 		} else if !check_password_hash(password, password_hash) {
-			//loginData.Error = "Invalid password "
+			err = errors.New("Invalid password")
+			session.AddFlash("Invalid password")
+			session.Save(r,w)
 		} else {
 			session.AddFlash("You were logged in")
 			session.Save(r,w)
@@ -497,12 +503,20 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Figure out if we ever actually use the data error if not then just remove it all
+	var err_str string
+	if err != nil {
+		err_str = err.Error()
+	} else {
+		err_str = ""
+	}
+
 	loginData := LoginData{
 		BaseTemplateData: BaseTemplateData{
 			User:    g.User,
 			Flashes: flashes,
 		},
-		Error: "",
+		Error: err_str,
 		Form: struct {
 			Username string
 		}{},
@@ -537,15 +551,16 @@ func register(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	registerData := RegisterData{
-		Error: "",
-		Form: struct {
-			Username string
-			Email    string
-		}{},
-	}
-
 	var err error
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	var username, email string
+
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -553,11 +568,10 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		username := r.FormValue("username")
-		email := r.FormValue("email")
+		username = r.FormValue("username")
+		email = r.FormValue("email")
 
-		registerData.Form.Username = username
-		registerData.Form.Email = email
+		
 
 		if username == "" {
 			err = errorGen("You have to enter a username")
@@ -578,11 +592,33 @@ func register(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			//TODO: Add notfication popup here
+			
+			
+			session.AddFlash("You were successfully registered and can login now")
+			session.Save(r,w)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 	}
+
+	flashes, err := getFlashes(r,w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	registerData := RegisterData{
+		BaseTemplateData: BaseTemplateData{
+			Flashes: flashes,
+		},
+		Error: "",
+		Form: struct {
+			Username string
+			Email    string
+		}{username, email},
+	}
+
 	// Parse and execute template
 	tmpl, err := template.New("layout.html").
 		Funcs(template.FuncMap{
@@ -626,6 +662,16 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
 			g.User.UserID, messageText, int(time.Now().Unix()))
 	}
+	
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash("Your message was recorded")
+	session.Save(r,w)
+
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
@@ -636,6 +682,15 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.User = nil
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	session.AddFlash("You were logged out")
+	session.Save(r,w)
 	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
