@@ -13,6 +13,8 @@ import (
 	"text/template"
 	"time"
 
+	openapi "minitwit/src/apimodels/go"
+
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
@@ -587,6 +589,13 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	log.Printf("Server started")
+
+	MinitwitAPIService := openapi.NewMinitwitAPIService()
+	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
+
+	router := openapi.NewRouter(MinitwitAPIController)
+
 	ensureDB()
 	// g.DB = connect_db()
 	// _, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
@@ -601,22 +610,22 @@ func main() {
 	// 	Email:    userData[0]["email"].(string),
 	// }
 
-	r := mux.NewRouter()
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	r.HandleFunc("/", timeline).Methods("GET")
-	r.HandleFunc("/public", public).Methods("GET")
-	// r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
-	r.HandleFunc("/add_message", addMessage).Methods("POST")
-	r.HandleFunc("/login", login).Methods("GET", "POST")
-	r.HandleFunc("/register", register).Methods("GET", "POST")
-	r.HandleFunc("/logout", logoutHandler).Methods("GET")
-	r.PathPrefix("/static/").Handler(s).Methods("GET")
-	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	router.HandleFunc("/", timeline).Methods("GET")
+	router.HandleFunc("/public", public).Methods("GET")
+	// router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
+	// router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	router.HandleFunc("/add_message", addMessage).Methods("POST")
+	router.HandleFunc("/login", login).Methods("GET", "POST")
+	router.HandleFunc("/register", register).Methods("GET", "POST")
+	router.HandleFunc("/logout", logoutHandler).Methods("GET")
+	router.PathPrefix("/static/").Handler(s).Methods("GET")
+
+	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
-	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	http.Handle("/", router)
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
