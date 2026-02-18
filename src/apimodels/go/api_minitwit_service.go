@@ -12,9 +12,65 @@ package openapi
 
 import (
 	"context"
-	"net/http"
+	"database/sql"
 	"errors"
+	"net/http"
+	"strings"
+	"sync/atomic"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
+
+const (
+	apiDatabasePath    = "/tmp/minitwit.db"
+	simulatorAuthToken = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
+	authErrorMessage   = "You are not authorized to use this resource!"
+)
+
+var latestValue int64
+
+func updateLatestIfProvided(latest int32) {
+	if latest <= 0 {
+		return
+	}
+	for {
+		current := atomic.LoadInt64(&latestValue)
+		if atomic.CompareAndSwapInt64(&latestValue, current, int64(latest)) {
+			return
+		}
+	}
+}
+
+func getLatest() int32 {
+	return int32(atomic.LoadInt64(&latestValue))
+}
+
+func isAuthorized(authorization string) bool {
+	return authorization == simulatorAuthToken
+}
+
+func unauthorizedResponse() (ImplResponse, error) {
+	return Response(http.StatusForbidden, ErrorResponse{
+		Status:   http.StatusForbidden,
+		ErrorMsg: authErrorMessage,
+	}), nil
+}
+
+func openDB() (*sql.DB, error) {
+	return sql.Open("sqlite3", apiDatabasePath)
+}
+
+func getUserID(db *sql.DB, username string) (int64, error) {
+	var id int64
+	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
+	return id, err
+}
+
+func formatMessageTime(unixTimestamp int64) string {
+	return time.Unix(unixTimestamp, 0).UTC().Format("2006-01-02 15:04:05")
+}
 
 // MinitwitAPIService is a service that implements the logic for the MinitwitAPIServicer
 // This service should implement the business logic for every endpoint for the MinitwitAPI API.
@@ -27,109 +83,458 @@ func NewMinitwitAPIService() *MinitwitAPIService {
 	return &MinitwitAPIService{}
 }
 
-// GetFollow - 
+// GetFollow -
 func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, authorization string, latest int32, no int32) (ImplResponse, error) {
-	// TODO - update GetFollow with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
 
-	// TODO: Uncomment the next line to return response Response(200, FollowsResponse{}) or use other options such as http.Ok ...
-	// return Response(200, FollowsResponse{}), nil
+	if !isAuthorized(authorization) {
+		return unauthorizedResponse()
+	}
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(403, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(403, ErrorResponse{}), nil
+	if no < 0 {
+		no = 0
+	}
 
-	// TODO: Uncomment the next line to return response Response(404, {}) or use other options such as http.Ok ...
-	// return Response(404, nil),nil
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
 
-	return Response(http.StatusNotImplemented, nil), errors.New("GetFollow method not implemented")
+	userID, err := getUserID(db, username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Response(http.StatusNotFound, nil), nil
+	}
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	rows, err := db.Query(`
+		select user.username
+		from follower
+		join user on follower.whom_id = user.user_id
+		where follower.who_id = ?
+		limit ?`, userID, no)
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer rows.Close()
+
+	follows := make([]string, 0)
+	for rows.Next() {
+		var follow string
+		if err := rows.Scan(&follow); err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+		follows = append(follows, follow)
+	}
+	if err := rows.Err(); err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	return Response(http.StatusOK, FollowsResponse{Follows: follows}), nil
 }
 
-// PostFollow - 
+// PostFollow -
 func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, authorization string, payload FollowAction, latest int32) (ImplResponse, error) {
-	// TODO - update PostFollow with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
 
-	// TODO: Uncomment the next line to return response Response(204, {}) or use other options such as http.Ok ...
-	// return Response(204, nil),nil
+	if !isAuthorized(authorization) {
+		return unauthorizedResponse()
+	}
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(403, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(403, ErrorResponse{}), nil
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
 
-	// TODO: Uncomment the next line to return response Response(404, {}) or use other options such as http.Ok ...
-	// return Response(404, nil),nil
+	userID, err := getUserID(db, username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Response(http.StatusNotFound, nil), nil
+	}
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
 
-	return Response(http.StatusNotImplemented, nil), errors.New("PostFollow method not implemented")
+	if payload.Follow != "" && payload.Unfollow != "" {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "provide either follow or unfollow",
+		}), nil
+	}
+
+	if payload.Follow != "" {
+		whomID, err := getUserID(db, payload.Follow)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Response(http.StatusNotFound, nil), nil
+		}
+		if err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+
+		var existing int
+		err = db.QueryRow(
+			"select 1 from follower where who_id = ? and whom_id = ?",
+			userID,
+			whomID,
+		).Scan(&existing)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+		if errors.Is(err, sql.ErrNoRows) {
+			if _, err := db.Exec(
+				"insert into follower (who_id, whom_id) values (?, ?)",
+				userID,
+				whomID,
+			); err != nil {
+				return Response(http.StatusInternalServerError, ErrorResponse{
+					Status:   http.StatusInternalServerError,
+					ErrorMsg: err.Error(),
+				}), nil
+			}
+		}
+
+		return Response(http.StatusNoContent, nil), nil
+	}
+
+	if payload.Unfollow != "" {
+		whomID, err := getUserID(db, payload.Unfollow)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Response(http.StatusNotFound, nil), nil
+		}
+		if err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+
+		if _, err := db.Exec(
+			"delete from follower where who_id = ? and whom_id = ?",
+			userID,
+			whomID,
+		); err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+
+		return Response(http.StatusNoContent, nil), nil
+	}
+
+	return Response(http.StatusBadRequest, ErrorResponse{
+		Status:   http.StatusBadRequest,
+		ErrorMsg: "follow or unfollow is required",
+	}), nil
 }
 
-// GetLatestValue - 
+// GetLatestValue -
 func (s *MinitwitAPIService) GetLatestValue(ctx context.Context) (ImplResponse, error) {
-	// TODO - update GetLatestValue with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-
-	// TODO: Uncomment the next line to return response Response(200, LatestValue{}) or use other options such as http.Ok ...
-	// return Response(200, LatestValue{}), nil
-
-	// TODO: Uncomment the next line to return response Response(500, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(500, ErrorResponse{}), nil
-
-	return Response(http.StatusNotImplemented, nil), errors.New("GetLatestValue method not implemented")
+	return Response(http.StatusOK, LatestValue{Latest: getLatest()}), nil
 }
 
-// GetMessages - 
+// GetMessages -
 func (s *MinitwitAPIService) GetMessages(ctx context.Context, authorization string, latest int32, no int32) (ImplResponse, error) {
-	// TODO - update GetMessages with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	if !isAuthorized(authorization) {
+		return unauthorizedResponse()
+	}
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(200, []Message{}) or use other options such as http.Ok ...
-	// return Response(200, []Message{}), nil
+	if no < 0 {
+		no = 0
+	}
 
-	// TODO: Uncomment the next line to return response Response(403, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(403, ErrorResponse{}), nil
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
 
-	return Response(http.StatusNotImplemented, nil), errors.New("GetMessages method not implemented")
+	rows, err := db.Query(`
+		select message.text, message.pub_date, user.username
+		from message
+		join user on message.author_id = user.user_id
+		where message.flagged = 0
+		order by message.pub_date desc
+		limit ?`, no)
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer rows.Close()
+
+	messages := make([]Message, 0)
+	for rows.Next() {
+		var content string
+		var pubDate sql.NullInt64
+		var user string
+		if err := rows.Scan(&content, &pubDate, &user); err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+
+		pubTime := int64(0)
+		if pubDate.Valid {
+			pubTime = pubDate.Int64
+		}
+
+		messages = append(messages, Message{
+			Content: content,
+			PubDate: formatMessageTime(pubTime),
+			User:    user,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	return Response(http.StatusOK, messages), nil
 }
 
-// GetMessagesPerUser - 
+// GetMessagesPerUser -
 func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username string, authorization string, latest int32, no int32) (ImplResponse, error) {
-	// TODO - update GetMessagesPerUser with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
 
-	// TODO: Uncomment the next line to return response Response(200, []Message{}) or use other options such as http.Ok ...
-	// return Response(200, []Message{}), nil
+	if !isAuthorized(authorization) {
+		return unauthorizedResponse()
+	}
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(403, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(403, ErrorResponse{}), nil
+	if no < 0 {
+		no = 0
+	}
 
-	// TODO: Uncomment the next line to return response Response(404, {}) or use other options such as http.Ok ...
-	// return Response(404, nil),nil
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
 
-	return Response(http.StatusNotImplemented, nil), errors.New("GetMessagesPerUser method not implemented")
+	userID, err := getUserID(db, username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Response(http.StatusNotFound, nil), nil
+	}
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	rows, err := db.Query(`
+		select message.text, message.pub_date, user.username
+		from message
+		join user on message.author_id = user.user_id
+		where message.flagged = 0 and user.user_id = ?
+		order by message.pub_date desc
+		limit ?`, userID, no)
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer rows.Close()
+
+	messages := make([]Message, 0)
+	for rows.Next() {
+		var content string
+		var pubDate sql.NullInt64
+		var user string
+		if err := rows.Scan(&content, &pubDate, &user); err != nil {
+			return Response(http.StatusInternalServerError, ErrorResponse{
+				Status:   http.StatusInternalServerError,
+				ErrorMsg: err.Error(),
+			}), nil
+		}
+
+		pubTime := int64(0)
+		if pubDate.Valid {
+			pubTime = pubDate.Int64
+		}
+
+		messages = append(messages, Message{
+			Content: content,
+			PubDate: formatMessageTime(pubTime),
+			User:    user,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	return Response(http.StatusOK, messages), nil
 }
 
-// PostMessagesPerUser - 
+// PostMessagesPerUser -
 func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username string, authorization string, payload PostMessage, latest int32) (ImplResponse, error) {
-	// TODO - update PostMessagesPerUser with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
 
-	// TODO: Uncomment the next line to return response Response(204, {}) or use other options such as http.Ok ...
-	// return Response(204, nil),nil
+	if !isAuthorized(authorization) {
+		return unauthorizedResponse()
+	}
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(403, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(403, ErrorResponse{}), nil
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
 
-	return Response(http.StatusNotImplemented, nil), errors.New("PostMessagesPerUser method not implemented")
+	userID, err := getUserID(db, username)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Response(http.StatusNotFound, nil), nil
+	}
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	content := strings.TrimSpace(payload.Content)
+	if content == "" {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "content is required",
+		}), nil
+	}
+
+	if _, err := db.Exec(
+		"insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)",
+		userID,
+		content,
+		time.Now().Unix(),
+	); err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	return Response(http.StatusNoContent, nil), nil
 }
 
-// PostRegister - 
+// PostRegister -
 func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterRequest, latest int32) (ImplResponse, error) {
-	// TODO - update PostRegister with the required logic for this service method.
-	// Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
+	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
 
-	// TODO: Uncomment the next line to return response Response(204, {}) or use other options such as http.Ok ...
-	// return Response(204, nil),nil
+	updateLatestIfProvided(latest)
 
-	// TODO: Uncomment the next line to return response Response(400, ErrorResponse{}) or use other options such as http.Ok ...
-	// return Response(400, ErrorResponse{}), nil
+	username := strings.TrimSpace(payload.Username)
+	email := strings.TrimSpace(payload.Email)
+	password := payload.Pwd
 
-	return Response(http.StatusNotImplemented, nil), errors.New("PostRegister method not implemented")
+	if username == "" {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "You have to enter a username",
+		}), nil
+	}
+	if email == "" || !strings.Contains(email, "@") {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "You have to enter a valid email address",
+		}), nil
+	}
+	if strings.TrimSpace(password) == "" {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "You have to enter a password",
+		}), nil
+	}
+
+	db, err := openDB()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	defer db.Close()
+
+	if _, err := getUserID(db, username); err == nil {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "The username is already taken",
+		}), nil
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	if _, err := db.Exec(
+		"insert into user (username, email, pw_hash) values (?, ?, ?)",
+		username,
+		email,
+		string(passwordHash),
+	); err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	return Response(http.StatusNoContent, nil), nil
 }
