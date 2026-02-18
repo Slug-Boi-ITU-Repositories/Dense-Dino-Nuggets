@@ -277,7 +277,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id
 		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -337,7 +337,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		select message.*, user.* from message, user where
         user.user_id = message.author_id and user.user_id = ?
         order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -361,7 +361,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err == nil {
-			if queryCheckUserIsFollowed[0]["user_id"] != nil {
+			if len(queryCheckUserIsFollowed) > 0 {
 				follows = true
 			}
 		}
@@ -399,6 +399,37 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 func errorGen(err string) error {
 	return errors.New(err)
+}
+
+// Adds the current user as follower of the given user.
+func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Check if user is logged in
+	if g.User == nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+	// Get id of user to follow
+	username := mux.Vars(r)["username"]
+	whom_id, err := get_user_id(username)
+
+	if err != nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+	//Insert follow into database
+	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// There is a flash message in the method here. TODO later
+	// flash('You are now following "%s"' % username)
+	url := "/" + username
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
@@ -586,40 +617,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
-// Adds the current user as follower of the given user.
-func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
-	g.DB = connect_db()
-	defer g.DB.Close()
-
-	// Check if user is logged in
-	if g.User == nil {
-		http.Error(w, http.StatusText(401), 401)
-		return
-	}
-
-	// Get id of user to follow
-	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(username)
-
-	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
-		return
-	}
-	//Insert follow into database
-	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are now following "%s"' % username)
-	url := "/" + username
-	http.Redirect(w, r, url, http.StatusFound)
-	return
-
-}
-
 // Removes the current user as follower of the given user.
 func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
@@ -650,12 +647,12 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	ensureDB()
-	g.DB = connect_db()
-	_, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
-	if err != nil {
-		panic(err)
-	}
-	g.DB.Close()
+	// g.DB = connect_db()
+	// _, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// g.DB.Close()
 
 	// g.User = &User{
 	// 	UserID:   int(userData[0]["user_id"].(int64)),
