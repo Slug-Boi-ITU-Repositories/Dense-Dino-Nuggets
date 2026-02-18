@@ -593,7 +593,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check if user is logged in
 	if g.User == nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
 	}
 
