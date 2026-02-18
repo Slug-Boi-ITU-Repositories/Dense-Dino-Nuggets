@@ -361,7 +361,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err == nil {
-			if queryCheckUserIsFollowed[0]["user_id"] != nil {
+			if len(queryCheckUserIsFollowed) > 0 {
 				follows = true
 			}
 		}
