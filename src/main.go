@@ -430,8 +430,6 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	// flash('You are now following "%s"' % username)
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
-	return
-
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
