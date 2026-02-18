@@ -635,7 +635,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	whom_id, err := get_user_id(username)
 
 	if err != nil {
-		http.Error(w, http.StatusText(401), 401)
+		http.Error(w, http.StatusText(500), 500)
 		return
 	}
 	//Insert follow into database
