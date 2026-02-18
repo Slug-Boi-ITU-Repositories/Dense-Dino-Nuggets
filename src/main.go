@@ -619,40 +619,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
-// Adds the current user as follower of the given user.
-func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
-	g.DB = connect_db()
-	defer g.DB.Close()
-
-	// Check if user is logged in
-	if g.User == nil {
-		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		return
-	}
-
-	// Get id of user to follow
-	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(username)
-
-	if err != nil {
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	//Insert follow into database
-	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are now following "%s"' % username)
-	url := "/" + username
-	http.Redirect(w, r, url, http.StatusFound)
-	return
-
-}
-
 func main() {
 	ensureDB()
 	// g.DB = connect_db()
