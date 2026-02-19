@@ -14,9 +14,9 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6.2.0
       - name: Build binary
-        run: "go build -o ./out/minitwit ./src/main.go"
+        run: "go build -o ./minitwit ./src/main.go"
       - name: Zip project
-        run: "tar -zcvf minitwit.tar.gz ./out/minitwit README.md schema.sql static templates"
+        run: "tar -zcvf minitwit.tar.gz minitwit README.md schema.sql static templates"
       - name: Auto Changelog
         uses: ardalanamini/auto-changelog@v4.0.1
         id  : changelog
