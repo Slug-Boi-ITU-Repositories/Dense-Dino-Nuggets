@@ -617,6 +617,34 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
+// Removes the current user as follower of the given user.
+func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Check if user is logged in
+	if g.User == nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+
+	// Get id of user to unfollow
+	username := mux.Vars(r)["username"]
+	whom_id, err := get_user_id(username)
+
+	_, err = g.DB.Exec("delete from follower where who_id=? and whom_id=?", g.User.UserID, whom_id)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// There is a flash message in the method here. TODO later
+	// flash('You are no longer following "%s"' % username)
+	url := "/" + username
+	http.Redirect(w, r, url, http.StatusFound)
+	return
+}
+
 func main() {
 	ensureDB()
 	// g.DB = connect_db()
@@ -637,7 +665,7 @@ func main() {
 	r.HandleFunc("/", timeline).Methods("GET")
 	r.HandleFunc("/public", public).Methods("GET")
 	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
-	// r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
