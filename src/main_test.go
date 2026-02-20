@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 )
 
 const BASE_URL = "http://localhost:5000" // Should probably be changed
@@ -53,5 +56,39 @@ func helper_login(username string, password string) (*http.Response, *http.Clien
 	}
 
 	return r, http_session, nil
+}
 
+func register_and_login(username string, password string) (*http.Response, *http.Client, error) {
+	//Registers and logs in in one go
+	helper_register(username, password, nil, nil)
+	return helper_login(username, password)
+}
+
+func logout(http_session *http.Client) (*http.Response, error) {
+	//Helper function to logout
+	return http_session.Get(BASE_URL + "/logout")
+}
+
+func add_message(http_session *http.Client, text string) (*http.Response, error) {
+	//Records a message
+	r, err := http_session.PostForm(BASE_URL+"/add_message", url.Values{
+		"text": {text},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if text != "" {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			return nil, err
+		}
+		r.Body.Close()
+
+		if !strings.Contains(string(body), "Your message was recorded") {
+			return nil, fmt.Errorf("success response not found")
+		}
+	}
+
+	return r, nil
 }
