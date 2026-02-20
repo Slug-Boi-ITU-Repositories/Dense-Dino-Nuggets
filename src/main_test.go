@@ -93,9 +93,26 @@ func add_message(http_session *http.Client, text string) (*http.Response, error)
 	return r, nil
 }
 
+// Lil' helper function for assertions
+func assertContains(body, substr string) error {
+	if !strings.Contains(body, substr) {
+		return fmt.Errorf("expected %q in body\nGot:\n%s", substr, body)
+	}
+	return nil
+}
+
 // Testing functions
 func test_register() {
 	//Make sure registering works
+	r, err := helper_register("user1", "default", nil, nil)
+	if err != nil {
+		fmt.Errorf("register failed: %v", err)
+	}
+	defer r.Body.Close()
+
+	b, _ := io.ReadAll(r.Body)
+	assertContains(string(b), "You were successfully registered and can login now")
+
 }
 
 func test_loging_logout() {
