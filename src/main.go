@@ -462,8 +462,21 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are now following "%s"' % username)
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are now following \"%s\"", username))
+	err = session.Save(r,w)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
 }
@@ -746,11 +759,22 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are no longer following "%s"' % username)
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are no longer following \"%s\"", username))
+	err = session.Save(r,w) 
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
-	return
 }
 
 func main() {
