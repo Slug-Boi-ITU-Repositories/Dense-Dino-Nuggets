@@ -92,3 +92,20 @@ func add_message(http_session *http.Client, text string) (*http.Response, error)
 
 	return r, nil
 }
+
+// Testing functions
+func test_register() {
+	//Make sure registering works
+}
+
+func test_loging_logout() {
+	//Make sure logging in and logging out works
+}
+
+func test_message_recording() {
+	//Check if adding messages works
+}
+
+func test_timelines() {
+	//Make sure that timelines work
+}
