@@ -10,7 +10,6 @@ Vagrant.configure("2") do |config|
 
     server.vm.provider :utm do |u, override|
       override.vm.box = "utm/bookworm"
-      #override.vm.synced_folder ".", "/vagrant", type: "virtiofs"
       u.memory = 2048
       u.cpus = 2
     end
