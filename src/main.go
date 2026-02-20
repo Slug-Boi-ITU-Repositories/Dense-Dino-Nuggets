@@ -232,12 +232,19 @@ func createTimelineMessages(queryResult []map[string]any) []*Message {
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}	
+
 	// TEMPORARY DATABASE CONNECTION CREATION
 	g.DB = connect_db()
 	defer g.DB.Close()
 
 	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-	if g.User == nil {
+	if user_session.Values["authenticated"].(bool) {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
@@ -262,13 +269,15 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user := user_session.Values["user"].(User)
+
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
+			User:    &user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: g.User,
+		ProfileUser: &user,
 		Endpoint:    "timeline",
 	}
 
@@ -345,6 +354,13 @@ func public(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}	
+
 	// TEMPORARY DATABASE CONNECTION CREATION
 	g.DB = connect_db()
 	defer g.DB.Close()
@@ -374,19 +390,25 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages := createTimelineMessages(data)
 
+	user := user_session.Values["user"].(User)
+
+	var zero User
 	User := &User{
 		UserID:   int(userId),
 		Username: username,
 		Email:    userEmail,
 	}
 
+	
+
 	follows := false
-	if g.User != nil {
+	
+	if user != zero {
 		queryCheckUserIsFollowed, err := query_db(
 			`select 1 from follower
 		where follower.who_id = ?
 		and follower.whom_id = ?`, true,
-			g.User.UserID, User.UserID,
+			user.UserID, User.UserID,
 		)
 
 		if err == nil {
@@ -405,11 +427,11 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
+			User:    &user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: User,
+		ProfileUser: &user,
 		Endpoint:    "user_timeline",
 		Follows:     follows,
 	}
