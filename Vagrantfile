@@ -24,8 +24,12 @@ Vagrant.configure("2") do |config|
 
     # DigitalOcean (Cloud)
     server.vm.provider :digital_ocean do |provider, override|
+      override.vm.box = "digital_ocean"
+      override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
+      override.vm.synced_folder ".", "/vagrant", type: "rsync"
       provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
+      override.ssh.private_key_path = '~/.ssh/devops_rsa'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
@@ -76,12 +80,14 @@ Vagrant.configure("2") do |config|
       which go
       go version
       
+      mkdir /home/vagrant
       cp -r /vagrant/* /home/vagrant/
       cd /home/vagrant
 
       export CGO_ENABLED=1   # explicitly enable CGO
       go mod tidy
       go build -o minitwit ./src
+      echo "grab a cup of coffee this step takes a minute"
       nohup ./minitwit > app.log 2>&1 &
 
       echo "===================================="
