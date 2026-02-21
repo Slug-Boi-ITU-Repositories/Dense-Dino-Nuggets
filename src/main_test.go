@@ -7,9 +7,10 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"testing"
 )
 
-const BASE_URL = "http://localhost:5000" // Should probably be changed
+const BASE_URL = "http://localhost:8080" // Should probably be changed
 
 func helper_register(username, password string, password2 *string, email *string) (*http.Response, error) {
 	//Helper function to register a user
@@ -28,7 +29,14 @@ func helper_register(username, password string, password2 *string, email *string
 	data.Set("password2", *password2)
 	data.Set("email", *email)
 
-	resp, err := http.PostForm(BASE_URL+"/register", data)
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Jar: jar}
+
+	resp, err := client.PostForm(BASE_URL+"/register", data)
 	if err != nil {
 		return nil, err
 	}
@@ -94,24 +102,32 @@ func add_message(http_session *http.Client, text string) (*http.Response, error)
 }
 
 // Lil' helper function for assertions
-func assertContains(body, substr string) error {
+func assertContains(t *testing.T, body, substr string) {
+	t.Helper()
 	if !strings.Contains(body, substr) {
-		return fmt.Errorf("expected %q in body\nGot:\n%s", substr, body)
+		t.Fatalf("expected %q . \nGot:\n%s", substr, body)
 	}
-	return nil
+}
+
+func readBody(t *testing.T, r *http.Response) string {
+	t.Helper()
+	defer r.Body.Close()
+
+	b, err := io.ReadAll(r.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }
 
 // Testing functions
-func test_register() {
+func TestRegister(t *testing.T) {
 	//Make sure registering works
-	r, err := helper_register("user1", "default", nil, nil)
+	r, err := helper_register("user2", "default", nil, nil)
 	if err != nil {
-		fmt.Errorf("register failed: %v", err)
+		t.Fatalf("register failed: %v", err)
 	}
-	defer r.Body.Close()
-
-	b, _ := io.ReadAll(r.Body)
-	assertContains(string(b), "You were successfully registered and can login now")
+	assertContains(t, readBody(t, r), "You were successfully registered and can login now")
 
 }
 
