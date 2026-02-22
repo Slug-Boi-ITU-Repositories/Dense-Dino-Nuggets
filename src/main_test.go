@@ -8,11 +8,12 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
-const BASE_URL = "http://localhost:8080" // Should probably be changed
+const BASE_URL = "http://localhost:8080"
 
-func helper_register(username, password string, password2 *string, email *string) (*http.Response, error) {
+func helper_register(client *http.Client, username, password string, password2 *string, email *string) (*http.Response, error) {
 	//Helper function to register a user
 	if password2 == nil {
 		password2 = &password
@@ -28,13 +29,6 @@ func helper_register(username, password string, password2 *string, email *string
 	data.Set("password", password)
 	data.Set("password2", *password2)
 	data.Set("email", *email)
-
-	jar, err := cookiejar.New(nil)
-	if err != nil {
-		return nil, err
-	}
-
-	client := &http.Client{Jar: jar}
 
 	resp, err := client.PostForm(BASE_URL+"/register", data)
 	if err != nil {
@@ -66,9 +60,9 @@ func helper_login(username string, password string) (*http.Response, *http.Clien
 	return r, http_session, nil
 }
 
-func register_and_login(username string, password string) (*http.Response, *http.Client, error) {
+func register_and_login(client *http.Client, username string, password string) (*http.Response, *http.Client, error) {
 	//Registers and logs in in one go
-	helper_register(username, password, nil, nil)
+	helper_register(client, username, password, nil, nil)
 	return helper_login(username, password)
 }
 
@@ -109,6 +103,7 @@ func assertContains(t *testing.T, body, substr string) {
 	}
 }
 
+// lil' helper function for reading the response and converting it to a string
 func readBody(t *testing.T, r *http.Response) string {
 	t.Helper()
 	defer r.Body.Close()
@@ -120,15 +115,54 @@ func readBody(t *testing.T, r *http.Response) string {
 	return string(b)
 }
 
+func newTestClient() *http.Client {
+	jar, _ := cookiejar.New(nil)
+	return &http.Client{Jar: jar}
+}
+
 // Testing functions
 func TestRegister(t *testing.T) {
+	client := newTestClient()
 	//Make sure registering works
-	r, err := helper_register("user2", "default", nil, nil)
+	username := fmt.Sprintf("user_%d", time.Now().UnixNano())
+
+	r, err := helper_register(client, username, "default", nil, nil)
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
 	assertContains(t, readBody(t, r), "You were successfully registered and can login now")
 
+	r, err = helper_register(client, username, "default", nil, nil)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "The username is already taken")
+
+	r, err = helper_register(client, "", "default", nil, nil)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You have to enter a username")
+
+	r, err = helper_register(client, "meh", "", nil, nil)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You have to enter a password")
+
+	p2 := "y"
+	r, err = helper_register(client, "meh", "x", &p2, nil)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "The two passwords do not match")
+
+	email := "broken"
+	r, err = helper_register(client, "meh", "foo", nil, &email)
+	if err != nil {
+		t.Fatalf("register failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "The two passwords do not match")
 }
 
 func test_loging_logout() {
