@@ -1,0 +1,8 @@
+{
+  "name": "DDN",
+  "engineVersion": "v0.19.11",
+  "sdk": {
+    "source": "go"
+  },
+  "source": ".dagger"
+}
