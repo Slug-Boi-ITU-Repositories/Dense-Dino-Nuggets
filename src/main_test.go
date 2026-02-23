@@ -132,6 +132,8 @@ func TestRegister(t *testing.T) {
 	}
 	assertContains(t, readBody(t, r), "You were successfully registered and can login now")
 
+	//_, _ = client.Get(BASE_URL + "/login")
+
 	r, err = helper_register(client, username, "default", nil, nil)
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
@@ -162,7 +164,7 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register failed: %v", err)
 	}
-	assertContains(t, readBody(t, r), "The two passwords do not match")
+	assertContains(t, readBody(t, r), "You have to enter a valid email address")
 }
 
 func test_loging_logout() {

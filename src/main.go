@@ -90,12 +90,10 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 	}
 
 	flashes := session.Flashes()
-	session.Save(r,w)
+	session.Save(r, w)
 
 	return flashes, nil
 }
-
-
 
 func init_db() {
 	db := connect_db()
@@ -255,7 +253,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	messages := createTimelineMessages(data)
 
-	flashes, err := getFlashes(r,w)
+	flashes, err := getFlashes(r, w)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -307,7 +305,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 	messages := createTimelineMessages(data)
 
-	flashes, err := getFlashes(r,w)
+	flashes, err := getFlashes(r, w)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -396,7 +394,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	flashes, err := getFlashes(r,w)
+	flashes, err := getFlashes(r, w)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -477,7 +475,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	
 	// Create session to add flashes
 	var err error
 	session, err := store.Get(r, "app-session")
@@ -487,7 +484,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -512,14 +508,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 		if user.Username == "" {
 			err = errors.New("Invalid username")
 			session.AddFlash("Invalid username")
-			session.Save(r,w)
+			session.Save(r, w)
 		} else if !check_password_hash(password, password_hash) {
 			err = errors.New("Invalid password")
 			session.AddFlash("Invalid password")
-			session.Save(r,w)
+			session.Save(r, w)
 		} else {
 			session.AddFlash("You were logged in")
-			session.Save(r,w)
+			session.Save(r, w)
 			g.User = &user
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
@@ -527,7 +523,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	flashes, err := getFlashes(r,w)
+	flashes, err := getFlashes(r, w)
 	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -573,6 +569,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func register(w http.ResponseWriter, r *http.Request) {
 	if g.User != nil {
 		http.Redirect(w, r, "/"+g.User.Username, http.StatusSeeOther)
@@ -589,7 +592,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	var username, email string
 
 	if r.Method == "POST" {
@@ -601,8 +604,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 		username = r.FormValue("username")
 		email = r.FormValue("email")
-
-		
 
 		if username == "" {
 			err = errorGen("You have to enter a username")
@@ -623,19 +624,25 @@ func register(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			
-			
+
 			session.AddFlash("You were successfully registered and can login now")
-			session.Save(r,w)
+			session.Save(r, w)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 	}
 
-	flashes, err := getFlashes(r,w)
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	//flashes, err := getFlashes(r, w)
+	//if err != nil {
+	//	log.Println(err.Error())
+	//	http.Error(w, err.Error(), http.StatusInternalServerError)
+	//	return
+	//}
+
+	flashes, flashErr := getFlashes(r, w)
+	if flashErr != nil {
+		log.Println(flashErr.Error())
+		http.Error(w, flashErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -643,7 +650,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		BaseTemplateData: BaseTemplateData{
 			Flashes: flashes,
 		},
-		Error: "",
+		Error: errString(err),
 		Form: struct {
 			Username string
 			Email    string
@@ -693,7 +700,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
 			g.User.UserID, messageText, int(time.Now().Unix()))
 	}
-	
+
 	session, err := store.Get(r, "app-session")
 	if err != nil {
 		log.Println(err)
@@ -701,7 +708,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session.AddFlash("Your message was recorded")
-	session.Save(r,w)
+	session.Save(r, w)
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
@@ -721,7 +728,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session.AddFlash("You were logged out")
-	session.Save(r,w)
+	session.Save(r, w)
 	http.Redirect(w, r, "/public", http.StatusFound)
 }
 
@@ -768,13 +775,12 @@ func main() {
 	// 	Email:    userData[0]["email"].(string),
 	// }
 
-
 	store.Options = &sessions.Options{
-        Path:     "/",
-        MaxAge:   86400 * 7, // 7 days
-        HttpOnly: true,
-        Secure:   false, // Set to true in production with HTTPS
-    }
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+	}
 
 	r := mux.NewRouter()
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
