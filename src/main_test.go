@@ -167,14 +167,61 @@ func TestRegister(t *testing.T) {
 	assertContains(t, readBody(t, r), "You have to enter a valid email address")
 }
 
-func test_loging_logout() {
+func TestLogin_logout(t *testing.T) {
 	//Make sure logging in and logging out works
+	client := newTestClient()
+	username := fmt.Sprintf("user_%d", time.Now().UnixNano())
+
+	r, http_client, err := register_and_login(client, username, "default")
+	if err != nil {
+		t.Fatalf("register_and_login failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You were logged in")
+
+	r, err = logout(http_client)
+	if err != nil {
+		t.Fatalf("logout failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You were logged out")
+
+	r, http_client, err = helper_login(username, "wrongpassword")
+	if err != nil {
+		t.Fatalf("helper_login failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "Invalid password")
+
+	// This has to use a username that is not in the db
+	r, http_client, err = helper_login("notInDB", "wrongpassword")
+	if err != nil {
+		t.Fatalf("helper_login failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "Invalid username")
 }
 
-func test_message_recording() {
+func TestMessage_recording(t *testing.T) {
 	//Check if adding messages works
+	client := newTestClient()
+	username := fmt.Sprintf("user_%d", time.Now().UnixNano())
+
+	r, http_client, err := register_and_login(client, username, "default")
+	if err != nil {
+		t.Fatalf("register_and_login failed: %v", err)
+	}
+	defer r.Body.Close()
+
+	r, err = add_message(http_client, "test message 1")
+	if err != nil {
+		t.Fatalf("add_message failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "test message 1")
+
+	r, err = add_message(http_client, "<test message 2>")
+	if err != nil {
+		t.Fatalf("add_message failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "&lt;test message 2&gt;")
 }
 
-func test_timelines() {
+func TestTimelines(t *testing.T) {
 	//Make sure that timelines work
 }
