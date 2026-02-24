@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -75,6 +76,25 @@ var g struct {
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
+// Get the logged in user from the user session.
+//
+// If the user pointer is nil and the error is nil then no user is logged in.
+func getUser(r *http.Request) (*User, error) {
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		return nil, err
+	}
+	if _, exists := user_session.Values["user"]; !exists {
+		return nil, nil
+	}
+	user := &User{}
+	err = json.Unmarshal([]byte(user_session.Values["user"].(string)), user)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 func connect_db() *sql.DB {
 	db, err := sql.Open("sqlite3", DATABASE)
 	if err != nil {
@@ -94,8 +114,6 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 
 	return flashes, nil
 }
-
-
 
 func init_db() {
 	db := connect_db()
@@ -232,19 +250,19 @@ func createTimelineMessages(queryResult []map[string]any) []*Message {
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
-	user_session, err := store.Get(r, "user-session")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}	
-
 	// TEMPORARY DATABASE CONNECTION CREATION
 	g.DB = connect_db()
 	defer g.DB.Close()
+	
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-	if user_session.Values["authenticated"].(bool) {
+	if user == nil {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
@@ -254,7 +272,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 			user.user_id = ? OR
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
-		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
+		) ORDER BY message.pub_date DESC LIMIT ?`, false, user.UserID, user.UserID, PER_PAGE)
 	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -269,15 +287,13 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user := user_session.Values["user"].(User)
-
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    &user, // Pass the current user (nil in this case)
+			User:    user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: &user,
+		ProfileUser: user,
 		Endpoint:    "timeline",
 	}
 
@@ -522,7 +538,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -542,6 +557,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 			//loginData.Error = "Invalid username or password"
 		}
 
+		user_session, _ := store.Get(r, "user-session")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
 		if user.Username == "" {
@@ -555,7 +577,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 		} else {
 			session.AddFlash("You were logged in")
 			session.Save(r,w)
-			g.User = &user
+
+			userJson, err := json.Marshal(user)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			user_session.Values["user"] = string(userJson)
+			user_session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
