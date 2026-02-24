@@ -88,7 +88,7 @@ func getUser(r *http.Request) (*User, error) {
 		return nil, nil
 	}
 	user := &User{}
-	err = json.Unmarshal([]byte(user_session.Values["user"].(string)), user)
+	err = json.Unmarshal(user_session.Values["user"].([]byte), user)
 	if err != nil {
 		return nil, err
 	}
@@ -588,7 +588,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 			}
-			user_session.Values["user"] = string(userJson)
+			user_session.Values["user"] = userJson
 			user_session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
