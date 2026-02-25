@@ -276,15 +276,16 @@ func TestTimelines(t *testing.T) {
 		t.Fatalf("logout failed: %v", err)
 	}
 
+	client2 := newTestClient()
 	username2 := fmt.Sprintf("user_%d", time.Now().UnixNano())
-	_, http_client, err = register_and_login(client, username2, "default")
+	_, http_client2, err := register_and_login(client2, username2, "default")
 
-	_, err = add_message(http_client, "the message by bar")
+	_, err = add_message(http_client2, "the message by bar")
 	if err != nil {
 		t.Fatalf("add_message failed: %v", err)
 	}
 
-	r, err := http_client.Get(BASE_URL + "/public")
+	r, err := http_client2.Get(BASE_URL + "/public")
 	if err != nil {
 		t.Fatalf("get public timeline failed: %v", err)
 	}
@@ -293,7 +294,7 @@ func TestTimelines(t *testing.T) {
 	assertContains(t, body, "the message by bar")
 
 	// bar's timeline should just show bar's message
-	r, err = http_client.Get(BASE_URL + "/")
+	r, err = http_client2.Get(BASE_URL + "/")
 	if err != nil {
 		t.Fatalf("get timeline failed: %v", err)
 	}
@@ -302,4 +303,22 @@ func TestTimelines(t *testing.T) {
 	assertContainsNot(t, body, "the message by foo")
 	assertContains(t, body, "the message by bar")
 
+	// now let's follow foo
+	r, err = http_client2.Get(BASE_URL + "/" + username + "/follow")
+	if err != nil {
+		t.Fatalf("follow foo failed failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You are now following")
+
+	// we should now see foo's message
+	r, err = http_client2.Get(BASE_URL + "/")
+	if err != nil {
+		t.Fatalf("get timeline failed: %v", err)
+	}
+
+	body = readBody(t, r)
+	assertContains(t, body, "the message by foo")
+	assertContains(t, body, "the message by bar")
+
+	//but on the user's page we only want the user's message
 }
