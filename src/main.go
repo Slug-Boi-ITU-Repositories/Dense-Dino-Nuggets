@@ -70,8 +70,7 @@ const DEBUG = true
 const SECRET_KEY = "development key"
 
 var g struct {
-	DB   *sql.DB
-	User *User
+	DB *sql.DB
 }
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
