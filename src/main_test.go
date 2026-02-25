@@ -122,6 +122,14 @@ func assertContains(t *testing.T, body, substr string) {
 	}
 }
 
+// Lil' helper function for assertions
+func assertContainsNot(t *testing.T, body, substr string) {
+	t.Helper()
+	if strings.Contains(body, substr) {
+		t.Fatalf(" %q in body. \n", substr)
+	}
+}
+
 // lil' helper function for reading the response and converting it to a string
 func readBody(t *testing.T, r *http.Response) string {
 	t.Helper()
@@ -282,6 +290,16 @@ func TestTimelines(t *testing.T) {
 	}
 	body := readBody(t, r)
 	assertContains(t, body, "the message by foo")
+	assertContains(t, body, "the message by bar")
+
+	// bar's timeline should just show bar's message
+	r, err = http_client.Get(BASE_URL + "/")
+	if err != nil {
+		t.Fatalf("get timeline failed: %v", err)
+	}
+
+	body = readBody(t, r)
+	assertContainsNot(t, body, "the message by foo")
 	assertContains(t, body, "the message by bar")
 
 }
