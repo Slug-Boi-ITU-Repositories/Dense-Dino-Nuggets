@@ -262,7 +262,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
 	if user == nil {
-		http.Redirect(w, r, "/public", http.StatusOK)
+		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
 	data, err := query_db(`
