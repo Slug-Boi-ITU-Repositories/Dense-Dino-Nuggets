@@ -252,4 +252,36 @@ func TestMessage_recording(t *testing.T) {
 
 func TestTimelines(t *testing.T) {
 	//Make sure that timelines work
+	client := newTestClient()
+	username := fmt.Sprintf("user_%d", time.Now().UnixNano())
+
+	_, http_client, err := register_and_login(client, username, "default")
+	if err != nil {
+		t.Fatalf("register_and_login failed: %v", err)
+	}
+	_, err = add_message(http_client, "the message by foo")
+	if err != nil {
+		t.Fatalf("add_message failed: %v", err)
+	}
+	_, err = logout(http_client)
+	if err != nil {
+		t.Fatalf("logout failed: %v", err)
+	}
+
+	username2 := fmt.Sprintf("user_%d", time.Now().UnixNano())
+	_, http_client, err = register_and_login(client, username2, "default")
+
+	_, err = add_message(http_client, "the message by bar")
+	if err != nil {
+		t.Fatalf("add_message failed: %v", err)
+	}
+
+	r, err := http_client.Get(BASE_URL + "/public")
+	if err != nil {
+		t.Fatalf("get public timeline failed: %v", err)
+	}
+	body := readBody(t, r)
+	assertContains(t, body, "the message by foo")
+	assertContains(t, body, "the message by bar")
+
 }
