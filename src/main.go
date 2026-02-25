@@ -632,13 +632,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//flashes, err := getFlashes(r, w)
-	//if err != nil {
-	//	log.Println(err.Error())
-	//	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//	return
-	//}
-
 	flashes, flashErr := getFlashes(r, w)
 	if flashErr != nil {
 		log.Println(flashErr.Error())

@@ -62,8 +62,27 @@ func helper_login(username string, password string) (*http.Response, *http.Clien
 
 func register_and_login(client *http.Client, username string, password string) (*http.Response, *http.Client, error) {
 	//Registers and logs in in one go
-	helper_register(client, username, password, nil, nil)
-	return helper_login(username, password)
+	r, err := helper_register(client, username, password, nil, nil)
+	if err != nil {
+		return nil, client, err
+	}
+	defer r.Body.Close()
+	r, err = helper_login_with_client(client, username, password)
+	if err != nil {
+		return nil, client, err
+	}
+	return r, client, nil
+}
+
+func helper_login_with_client(client *http.Client, username, password string) (*http.Response, error) {
+	r, err := client.PostForm(BASE_URL+"/login", url.Values{
+		"username": {username},
+		"password": {password},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func logout(http_session *http.Client) (*http.Response, error) {
@@ -85,7 +104,7 @@ func add_message(http_session *http.Client, text string) (*http.Response, error)
 		if err != nil {
 			return nil, err
 		}
-		r.Body.Close()
+		//r.Body.Close()
 
 		if !strings.Contains(string(body), "Your message was recorded") {
 			return nil, fmt.Errorf("success response not found")
@@ -207,19 +226,28 @@ func TestMessage_recording(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register_and_login failed: %v", err)
 	}
-	defer r.Body.Close()
+	io.ReadAll(r.Body) // Not sure if this is needed
+	r.Body.Close()
 
 	r, err = add_message(http_client, "test message 1")
 	if err != nil {
 		t.Fatalf("add_message failed: %v", err)
 	}
-	assertContains(t, readBody(t, r), "test message 1")
 
 	r, err = add_message(http_client, "<test message 2>")
 	if err != nil {
 		t.Fatalf("add_message failed: %v", err)
 	}
-	assertContains(t, readBody(t, r), "&lt;test message 2&gt;")
+
+	r, err = http_client.Get(BASE_URL + "/")
+	if err != nil {
+		t.Fatalf("get timeline failed: %v", err)
+	}
+
+	body := readBody(t, r)
+
+	assertContains(t, body, "test message 1")
+	assertContains(t, body, "&lt;test message 2&gt;")
 }
 
 func TestTimelines(t *testing.T) {
