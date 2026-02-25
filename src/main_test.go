@@ -306,7 +306,7 @@ func TestTimelines(t *testing.T) {
 	// now let's follow foo
 	r, err = http_client2.Get(BASE_URL + "/" + username + "/follow")
 	if err != nil {
-		t.Fatalf("follow foo failed failed: %v", err)
+		t.Fatalf("follow foo failed: %v", err)
 	}
 	assertContains(t, readBody(t, r), "You are now following")
 
@@ -321,4 +321,28 @@ func TestTimelines(t *testing.T) {
 	assertContains(t, body, "the message by bar")
 
 	//but on the user's page we only want the user's message
+	r, err = http_client2.Get(BASE_URL + "/" + username2)
+	body = readBody(t, r)
+	assertContainsNot(t, body, "the message by foo")
+	assertContains(t, body, "the message by bar")
+
+	r, err = http_client2.Get(BASE_URL + "/" + username)
+	body = readBody(t, r)
+	assertContains(t, body, "the message by foo")
+	assertContainsNot(t, body, "the message by bar")
+
+	// now unfollow and check if that worked
+	r, err = http_client2.Get(BASE_URL + "/" + username + "/unfollow")
+	if err != nil {
+		t.Fatalf("unfollow foo failed: %v", err)
+	}
+	assertContains(t, readBody(t, r), "You are no longer following")
+	r, err = http_client2.Get(BASE_URL + "/")
+	if err != nil {
+		t.Fatalf("get timeline failed: %v", err)
+	}
+
+	body = readBody(t, r)
+	assertContainsNot(t, body, "the message by foo")
+	assertContains(t, body, "the message by bar")
 }
