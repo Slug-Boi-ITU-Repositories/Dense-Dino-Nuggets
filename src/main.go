@@ -396,6 +396,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
 	}
 	userId := data[0]["user_id"].(int64)
 	userEmail := data[0]["email"].(string)
@@ -868,6 +869,13 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	log.Printf("Server started")
+	store.Options = &sessions.Options{
+		Path:    "/",
+		MaxAge:  3600 * 8, // 8 hours
+		HttpOnly: true,
+		Secure:  false, // No ssl cert
+		SameSite: http.SameSiteLaxMode,
+	}
 
 	MinitwitAPIService := openapi.NewMinitwitAPIService()
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
