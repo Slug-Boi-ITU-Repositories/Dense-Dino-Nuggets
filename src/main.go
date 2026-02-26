@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -16,6 +17,7 @@ import (
 	openapi "minitwit/src/apimodels/go"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -36,7 +38,7 @@ type Message struct {
 
 type BaseTemplateData struct {
 	User    *User
-	Flashes []string
+	Flashes []interface{}
 }
 
 type RegisterData struct {
@@ -70,8 +72,28 @@ const DEBUG = true
 const SECRET_KEY = "development key"
 
 var g struct {
-	DB   *sql.DB
-	User *User
+	DB *sql.DB
+}
+
+var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
+
+// Get the logged in user from the user session.
+//
+// If the user pointer is nil and the error is nil then no user is logged in.
+func getUser(r *http.Request) (*User, error) {
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		return nil, err
+	}
+	if _, exists := user_session.Values["user"]; !exists {
+		return nil, nil
+	}
+	user := &User{}
+	err = json.Unmarshal(user_session.Values["user"].([]byte), user)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
 }
 
 func connect_db() *sql.DB {
@@ -82,7 +104,17 @@ func connect_db() *sql.DB {
 	return db
 }
 
-var Flashes []string
+func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		return nil, err
+	}
+
+	flashes := session.Flashes()
+	session.Save(r, w)
+
+	return flashes, nil
+}
 
 func init_db() {
 	db := connect_db()
@@ -223,9 +255,16 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-	if g.User == nil {
-		http.Redirect(w, r, "/public", http.StatusOK)
+	if user == nil {
+		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
 	data, err := query_db(`
@@ -234,7 +273,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 			user.user_id = ? OR
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
-		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
+		) ORDER BY message.pub_date DESC LIMIT ?`, false, user.UserID, user.UserID, PER_PAGE)
 	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -242,13 +281,20 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	messages := createTimelineMessages(data)
 
+	flashes, err := getFlashes(r, w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
-			Flashes: Flashes,
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: g.User,
+		ProfileUser: user,
 		Endpoint:    "timeline",
 	}
 
@@ -272,6 +318,13 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func public(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	g.DB = connect_db()
 	defer g.DB.Close()
 
@@ -287,13 +340,20 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 	messages := createTimelineMessages(data)
 
+	flashes, err := getFlashes(r, w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
-			Flashes: Flashes,
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: g.User,
+		ProfileUser: user,
 		Endpoint:    "public_timeline",
 	}
 
@@ -318,6 +378,12 @@ func public(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	// TEMPORARY DATABASE CONNECTION CREATION
 	g.DB = connect_db()
 	defer g.DB.Close()
@@ -333,7 +399,11 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	userId := data[0]["user_id"].(int64)
 	userEmail := data[0]["email"].(string)
-
+	pageUser := &User{
+		UserID:   int(userId),
+		Username: username,
+		Email:    userEmail,
+	}
 	// Get messages data
 	data, err = query_db(`
 		select message.*, user.* from message, user where
@@ -347,35 +417,36 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages := createTimelineMessages(data)
 
-	User := &User{
-		UserID:   int(userId),
-		Username: username,
-		Email:    userEmail,
-	}
-
 	follows := false
-	if g.User != nil {
+	if user != nil {
 		queryCheckUserIsFollowed, err := query_db(
 			`select 1 from follower
 		where follower.who_id = ?
 		and follower.whom_id = ?`, true,
-			g.User.UserID, User.UserID,
+			user.UserID, pageUser.UserID,
 		)
 
 		if err == nil {
-			if queryCheckUserIsFollowed[0]["user_id"] != nil {
+			if len(queryCheckUserIsFollowed) > 0 {
 				follows = true
 			}
 		}
 	}
 
+	flashes, err := getFlashes(r, w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
-			Flashes: Flashes,
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: User,
+		ProfileUser: pageUser,
 		Endpoint:    "user_timeline",
 		Follows:     follows,
 	}
@@ -403,27 +474,76 @@ func errorGen(err string) error {
 	return errors.New(err)
 }
 
-func login(w http.ResponseWriter, r *http.Request) {
-	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusFound)
+// Adds the current user as follower of the given user.
+func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	loginData := LoginData{
-		BaseTemplateData: BaseTemplateData{
-			User:    g.User,
-			Flashes: []string{},
-		},
-		Error: "",
-		Form: struct {
-			Username string
-		}{},
+	// Check if user is logged in
+	if user == nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+	// Get id of user to follow
+	username := mux.Vars(r)["username"]
+	whom_id, err := get_user_id(username)
+
+	if err != nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+	//Insert follow into database
+	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.UserID, whom_id)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	var err error
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are now following \"%s\"", username))
+	session.Save(r, w)
+
+	url := "/" + username
+	http.Redirect(w, r, url, http.StatusFound)
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	if user != nil {
+		http.Redirect(w, r, "/"+user.Username, http.StatusFound)
+		return
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Create session to add flashes
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -440,23 +560,69 @@ func login(w http.ResponseWriter, r *http.Request) {
 		err := g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
 		if err != nil {
 			// This line is kinda redudundant since we override it based on what was wrong later down
-			loginData.Error = "Invalid username or password"
+			//loginData.Error = "Invalid username or password"
+		}
+
+		user_session, _ := store.Get(r, "user-session")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
 		if user.Username == "" {
-			loginData.Error = "Invalid username"
+			err = errors.New("Invalid username")
+			session.AddFlash("Invalid username")
+			session.Save(r, w)
 		} else if !check_password_hash(password, password_hash) {
-			loginData.Error = "Invalid password "
+			err = errors.New("Invalid password")
+			session.AddFlash("Invalid password")
+			session.Save(r, w)
 		} else {
-			//TODO: Add flash login message
-			g.User = &user
+			session.AddFlash("You were logged in")
+			session.Save(r, w)
+
+			userJson, err := json.Marshal(user)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			user_session.Values["user"] = userJson
+			user_session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
 
 	}
+
+	flashes, err := getFlashes(r, w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// TODO: Figure out if we ever actually use the data error if not then just remove it all
+	var err_str string
+	if err != nil {
+		err_str = err.Error()
+	} else {
+		err_str = ""
+	}
+
+	loginData := LoginData{
+		BaseTemplateData: BaseTemplateData{
+			User:    user,
+			Flashes: flashes,
+		},
+		Error: err_str,
+		Form: struct {
+			Username string
+		}{},
+	}
+
 	tmpl, err := template.New("layout.html").
 		Funcs(template.FuncMap{
 			"gravatar":        gravatar_url,
@@ -478,23 +644,30 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusSeeOther)
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user != nil {
+		http.Redirect(w, r, "/"+user.Username, http.StatusSeeOther)
 		return
 	}
 
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	registerData := RegisterData{
-		Error: "",
-		Form: struct {
-			Username string
-			Email    string
-		}{},
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
-	var err error
+	var username, email string
+
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -502,11 +675,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		username := r.FormValue("username")
-		email := r.FormValue("email")
-
-		registerData.Form.Username = username
-		registerData.Form.Email = email
+		username = r.FormValue("username")
+		email = r.FormValue("email")
 
 		if username == "" {
 			err = errorGen("You have to enter a username")
@@ -527,11 +697,32 @@ func register(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			//TODO: Add notfication popup here
+
+			session.AddFlash("You were successfully registered and can login now")
+			session.Save(r, w)
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
 	}
+
+	flashes, err := getFlashes(r, w)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	registerData := RegisterData{
+		BaseTemplateData: BaseTemplateData{
+			Flashes: flashes,
+		},
+		Error: "",
+		Form: struct {
+			Username string
+			Email    string
+		}{username, email},
+	}
+
 	// Parse and execute template
 	tmpl, err := template.New("layout.html").
 		Funcs(template.FuncMap{
@@ -555,7 +746,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func addMessage(w http.ResponseWriter, r *http.Request) {
-	if g.User == nil {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user == nil {
 		log.Println("Tried to add message but no user is set")
 		http.Error(w, "No user is logged in", http.StatusUnauthorized)
 		return
@@ -565,7 +763,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -573,19 +771,99 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	messageText := r.FormValue("text")
 	if messageText != "" {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
-			g.User.UserID, messageText, int(time.Now().Unix()))
+			user.UserID, messageText, int(time.Now().Unix()))
 	}
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash("Your message was recorded")
+	session.Save(r, w)
+
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	//TODO: Add logout message
-	if g.User == nil {
+	if user == nil {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
 	}
-	g.User = nil
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	delete(user_session.Values, "user")
+	user_session.Save(r, w)
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	session.AddFlash("You were logged out")
+	session.Save(r, w)
 	http.Redirect(w, r, "/public", http.StatusFound)
+}
+
+// Removes the current user as follower of the given user.
+func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	g.DB = connect_db()
+	defer g.DB.Close()
+
+	// Check if user is logged in
+	if user == nil {
+		http.Error(w, http.StatusText(401), 401)
+		return
+	}
+
+	// Get id of user to unfollow
+	username := mux.Vars(r)["username"]
+	whom_id, err := get_user_id(username)
+
+	_, err = g.DB.Exec("delete from follower where who_id=? and whom_id=?", user.UserID, whom_id)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are no longer following \"%s\"", username))
+	err = session.Save(r, w)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	url := "/" + username
+	http.Redirect(w, r, url, http.StatusFound)
 }
 
 func main() {
@@ -613,8 +891,8 @@ func main() {
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	router.HandleFunc("/", timeline).Methods("GET")
 	router.HandleFunc("/public", public).Methods("GET")
-	// router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("POST")
-	// router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("POST")
+  router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
+	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
 	router.HandleFunc("/add_message", addMessage).Methods("POST")
 	router.HandleFunc("/login", login).Methods("GET", "POST")
 	router.HandleFunc("/register", register).Methods("GET", "POST")
