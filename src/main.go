@@ -871,7 +871,7 @@ func main() {
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
 		Path:    "/",
-		MaxAge:  3600 * 8, // 8 hours
+		MaxAge:  86400 * 7, // 7 days
 		HttpOnly: true,
 		Secure:  false, // No ssl cert
 		SameSite: http.SameSiteLaxMode,
