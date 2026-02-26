@@ -891,11 +891,11 @@ func main() {
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	router.HandleFunc("/", timeline).Methods("GET")
 	router.HandleFunc("/public", public).Methods("GET")
-  router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
+  	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
 	router.HandleFunc("/add_message", addMessage).Methods("POST")
 	router.HandleFunc("/login", login).Methods("GET", "POST")
-	router.HandleFunc("/register", register).Methods("GET", "POST")
+	router.HandleFunc("/register-user", register).Methods("GET", "POST")
 	router.HandleFunc("/logout", logoutHandler).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 
