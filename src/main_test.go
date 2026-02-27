@@ -30,7 +30,7 @@ func helper_register(client *http.Client, username, password string, password2 *
 	data.Set("password2", *password2)
 	data.Set("email", *email)
 
-	resp, err := client.PostForm(BASE_URL+"/register", data)
+	resp, err := client.PostForm(BASE_URL+"/register-user", data)
 	if err != nil {
 		return nil, err
 	}
