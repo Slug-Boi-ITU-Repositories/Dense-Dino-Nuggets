@@ -644,6 +644,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}
+
 func register(w http.ResponseWriter, r *http.Request) {
 	user, err := getUser(r)
 	if err != nil {
@@ -706,10 +713,10 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	flashes, err := getFlashes(r, w)
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	flashes, flashErr := getFlashes(r, w)
+	if flashErr != nil {
+		log.Println(flashErr.Error())
+		http.Error(w, flashErr.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -717,7 +724,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		BaseTemplateData: BaseTemplateData{
 			Flashes: flashes,
 		},
-		Error: "",
+		Error: errString(err),
 		Form: struct {
 			Username string
 			Email    string
