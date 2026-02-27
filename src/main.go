@@ -552,20 +552,21 @@ func login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		user_session, err := store.Get(r, "user-session")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
 		user := User{}
 		var password_hash string
 
-		err := g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
-		if err != nil {
-			// This line is kinda redudundant since we override it based on what was wrong later down
-			//loginData.Error = "Invalid username or password"
-		}
-
-		user_session, _ := store.Get(r, "user-session")
-		if err != nil {
+		err = g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		if err != nil && err != sql.ErrNoRows {
 			log.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -573,7 +574,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
-		if user.Username == "" {
+		if user.Username == "" || err == sql.ErrNoRows {
 			err = errors.New("Invalid username")
 			session.AddFlash("Invalid username")
 			session.Save(r, w)
