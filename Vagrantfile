@@ -39,56 +39,38 @@ Vagrant.configure("2") do |config|
 
 
     # Provisioning
-    server.vm.provision "shell", inline: <<-SHELL
+    server.vm.provision "shell",env: {"IMAGE_NAME" => ENV['DOCKER_USERNAME']} ,inline: <<-SHELL
       sudo apt-get update -y
+      sudo apt-get install -y ca-certificates curl gnupg
       
-      echo "=== Removing system Go (if any) ==="
-      sudo apt-get remove -y golang-go golang-* 2>/dev/null || true
-      sudo apt-get autoremove -y || true
-
-      # CGO dependencies
-      sudo apt-get install -y gcc libsqlite3-dev
+      # Docker GPG key
+      sudo install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      sudo chmod a+r /etc/apt/keyrings/docker.gpg
       
-      GO_VERSION="1.25.5"
-  # Detect architecture of machine
-       ARCH=$(uname -m)
-  case $ARCH in
-    x86_64)
-      GO_ARCH="amd64"
-      ;;
-    aarch64)
-      GO_ARCH="arm64"
-      ;;
-    *)
-      echo "Unsupported architecture: $ARCH"
-      exit 1
-      ;;
-  esac
+      # Set up the repository
+      echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+        $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-      #sudo apt-get install -y golang-go
-      wget -q "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
-      sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
-      rm "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      # Docker engine
+      sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
 
-      # Ensure new Go is first in path
-      echo 'export PATH=/usr/local/go/bin:$PATH' | sudo tee /etc/profile.d/go.sh
-      source /etc/profile.d/go.sh
+      # Allow vagrant user to run docker commands
+      sudo usermod -aG docker vagrant
 
-      # verify go version
-      echo "=== Go environment ==="
-      which go
-      go version
-      
-      mkdir -p /home/vagrant
-      cp -r /vagrant/* /home/vagrant/
-      cd /home/vagrant
+      # Stop and remove any existing container named minitwit
+      if [ "$(sudo docker ps -q -f name=minitwit)" ]; then
+          sudo docker stop minitwit
+      fi
+      if [ "$(sudo docker ps -aq -f status=exited -f name=minitwit)" ]; then
+          sudo docker rm minitwit
+      fi
 
-      export CGO_ENABLED=1   # explicitly enable CGO
-      go mod tidy
-      go build -o minitwit ./src
-      echo "grab a cup of coffee this step takes a minute"
-      pkill -9 "minitwit" # make sure to kill the process if its currently running
-      nohup ./minitwit > app.log 2>&1 &
+      # Pull the latest image and run the container
+      sudo docker run -d --pull always --name minitwit -p 8080:8080 "$IMAGE_NAME"
+
 
       echo "===================================="
       echo "Minitwit deployed!"
