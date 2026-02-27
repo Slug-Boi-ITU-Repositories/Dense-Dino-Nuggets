@@ -20,6 +20,7 @@ import (
 	"context"
 	"dagger/ddn/internal/dagger"
 	"fmt"
+	"os"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -102,4 +103,36 @@ func (m *Ddn) RunAllTests(ctx context.Context, src *dagger.Directory) error {
 	// Wait for all tests to complete
 	// If any test fails, the error will be returned
 	return eg.Wait()
+}
+
+func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory) (string, error) {
+    // First, build the container using your Dockerfile
+    container := src.DockerBuild()
+    
+    // Get Docker Hub credentials from environment variables
+    username := os.Getenv("DOCKER_USERNAME")
+    password := os.Getenv("DOCKER_PASSWORD")
+
+    if username == "" || password == "" {
+        return "", fmt.Errorf("DOCKER_USERNAME and DOCKER_PASSWORD must be set")
+    }
+    
+    // Configure Docker registry authentication
+    registry := "docker.io" // Default Docker Hub registry
+    auth := dag.SetSecret("DOCKER_PASSWORD", password)
+    
+    // Tag the container with a version (you might want to make this configurable)
+    tag := "latest" // Consider passing this as a parameter or using git commit hash
+    imageRef := fmt.Sprintf("%s/%s:%s", username, "minitwitimage", tag)
+    
+    // Publish the container to Docker Hub
+    publishedRef, err := container.
+        WithRegistryAuth(registry, username, auth).
+        Publish(ctx, imageRef)
+    
+    if err != nil {
+        return "", fmt.Errorf("failed to publish container: %w", err)
+    }
+    
+    return publishedRef, nil
 }
