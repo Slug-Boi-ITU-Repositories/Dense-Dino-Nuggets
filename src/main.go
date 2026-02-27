@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	openapi "minitwit/src/apimodels/go"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -69,11 +72,29 @@ const DEBUG = true
 const SECRET_KEY = "development key"
 
 var g struct {
-	DB   *sql.DB
-	User *User
+	DB *sql.DB
 }
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
+
+// Get the logged in user from the user session.
+//
+// If the user pointer is nil and the error is nil then no user is logged in.
+func getUser(r *http.Request) (*User, error) {
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		return nil, err
+	}
+	if _, exists := user_session.Values["user"]; !exists {
+		return nil, nil
+	}
+	user := &User{}
+	err = json.Unmarshal(user_session.Values["user"].([]byte), user)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
 
 func connect_db() *sql.DB {
 	db, err := sql.Open("sqlite3", DATABASE)
@@ -234,9 +255,16 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-	if g.User == nil {
-		http.Redirect(w, r, "/public", http.StatusOK)
+	if user == nil {
+		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
 	data, err := query_db(`
@@ -245,7 +273,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 			user.user_id = ? OR
 			user.user_id IN (SELECT whom_id FROM follower
 								WHERE who_id = ?)
-		) ORDER BY message.pub_date DESC LIMIT ?`, false, g.User.UserID, g.User.UserID, PER_PAGE)
+		) ORDER BY message.pub_date DESC LIMIT ?`, false, user.UserID, user.UserID, PER_PAGE)
 	if err != nil && err != sql.ErrNoRows {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -262,11 +290,11 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
+			User:    user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: g.User,
+		ProfileUser: user,
 		Endpoint:    "timeline",
 	}
 
@@ -290,6 +318,13 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func public(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	g.DB = connect_db()
 	defer g.DB.Close()
 
@@ -314,11 +349,11 @@ func public(w http.ResponseWriter, r *http.Request) {
 
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
+			User:    user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: g.User,
+		ProfileUser: user,
 		Endpoint:    "public_timeline",
 	}
 
@@ -343,6 +378,12 @@ func public(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	// TEMPORARY DATABASE CONNECTION CREATION
 	g.DB = connect_db()
 	defer g.DB.Close()
@@ -355,10 +396,15 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
 	}
 	userId := data[0]["user_id"].(int64)
 	userEmail := data[0]["email"].(string)
-
+	pageUser := &User{
+		UserID:   int(userId),
+		Username: username,
+		Email:    userEmail,
+	}
 	// Get messages data
 	data, err = query_db(`
 		select message.*, user.* from message, user where
@@ -372,19 +418,13 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	messages := createTimelineMessages(data)
 
-	User := &User{
-		UserID:   int(userId),
-		Username: username,
-		Email:    userEmail,
-	}
-
 	follows := false
-	if g.User != nil {
+	if user != nil {
 		queryCheckUserIsFollowed, err := query_db(
 			`select 1 from follower
 		where follower.who_id = ?
 		and follower.whom_id = ?`, true,
-			g.User.UserID, User.UserID,
+			user.UserID, pageUser.UserID,
 		)
 
 		if err == nil {
@@ -403,11 +443,11 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	templateData := TimelineData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User, // Pass the current user (nil in this case)
+			User:    user, // Pass the current user (nil in this case)
 			Flashes: flashes,
 		},
 		Messages:    messages,
-		ProfileUser: User,
+		ProfileUser: pageUser,
 		Endpoint:    "user_timeline",
 		Follows:     follows,
 	}
@@ -437,11 +477,18 @@ func errorGen(err string) error {
 
 // Adds the current user as follower of the given user.
 func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	g.DB = connect_db()
 	defer g.DB.Close()
 
 	// Check if user is logged in
-	if g.User == nil {
+	if user == nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
@@ -454,21 +501,36 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	//Insert follow into database
-	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", g.User.UserID, whom_id)
+	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.UserID, whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are now following "%s"' % username)
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are now following \"%s\"", username))
+	session.Save(r, w)
+
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusFound)
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	if user != nil {
+		http.Redirect(w, r, "/"+user.Username, http.StatusFound)
 		return
 	}
 
@@ -476,7 +538,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 	defer g.DB.Close()
 
 	// Create session to add flashes
-	var err error
 	session, err := store.Get(r, "app-session")
 	if err != nil {
 		log.Println(err)
@@ -503,6 +564,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 			//loginData.Error = "Invalid username or password"
 		}
 
+		user_session, _ := store.Get(r, "user-session")
+		if err != nil {
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
 		// THIS IS SO BAD FOR SECURITY HOLY HELL
 		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
 		if user.Username == "" {
@@ -516,7 +584,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 		} else {
 			session.AddFlash("You were logged in")
 			session.Save(r, w)
-			g.User = &user
+
+			userJson, err := json.Marshal(user)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
+			user_session.Values["user"] = userJson
+			user_session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
@@ -540,7 +615,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	loginData := LoginData{
 		BaseTemplateData: BaseTemplateData{
-			User:    g.User,
+			User:    user,
 			Flashes: flashes,
 		},
 		Error: err_str,
@@ -577,15 +652,21 @@ func errString(err error) string {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	if g.User != nil {
-		http.Redirect(w, r, "/"+g.User.Username, http.StatusSeeOther)
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user != nil {
+		http.Redirect(w, r, "/"+user.Username, http.StatusSeeOther)
 		return
 	}
 
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	var err error
 	session, err := store.Get(r, "app-session")
 	if err != nil {
 		log.Println(err)
@@ -673,7 +754,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func addMessage(w http.ResponseWriter, r *http.Request) {
-	if g.User == nil {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if user == nil {
 		log.Println("Tried to add message but no user is set")
 		http.Error(w, "No user is logged in", http.StatusUnauthorized)
 		return
@@ -683,7 +771,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	g.DB = connect_db()
 	defer g.DB.Close()
 
-	err := r.ParseForm()
+	err = r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -691,7 +779,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	messageText := r.FormValue("text")
 	if messageText != "" {
 		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
-			g.User.UserID, messageText, int(time.Now().Unix()))
+			user.UserID, messageText, int(time.Now().Unix()))
 	}
 
 	session, err := store.Get(r, "app-session")
@@ -707,12 +795,27 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	//TODO: Add logout message
-	if g.User == nil {
+	if user == nil {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
 	}
-	g.User = nil
+	user_session, err := store.Get(r, "user-session")
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	delete(user_session.Values, "user")
+	user_session.Save(r, w)
+
 	session, err := store.Get(r, "app-session")
 	if err != nil {
 		log.Println(err)
@@ -727,11 +830,18 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // Removes the current user as follower of the given user.
 func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	g.DB = connect_db()
 	defer g.DB.Close()
 
 	// Check if user is logged in
-	if g.User == nil {
+	if user == nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
@@ -740,20 +850,45 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 	whom_id, err := get_user_id(username)
 
-	_, err = g.DB.Exec("delete from follower where who_id=? and whom_id=?", g.User.UserID, whom_id)
+	_, err = g.DB.Exec("delete from follower where who_id=? and whom_id=?", user.UserID, whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// There is a flash message in the method here. TODO later
-	// flash('You are no longer following "%s"' % username)
+
+	session, err := store.Get(r, "app-session")
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+	session.AddFlash(fmt.Sprintf("You are no longer following \"%s\"", username))
+	err = session.Save(r, w)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	url := "/" + username
 	http.Redirect(w, r, url, http.StatusFound)
-	return
 }
 
 func main() {
+	log.Printf("Server started")
+	store.Options = &sessions.Options{
+		Path:    "/",
+		MaxAge:  86400 * 7, // 7 days
+		HttpOnly: true,
+		Secure:  false, // No ssl cert
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	MinitwitAPIService := openapi.NewMinitwitAPIService()
+	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
+
+	router := openapi.NewRouter(MinitwitAPIController)
+
 	ensureDB()
 	// g.DB = connect_db()
 	// _, err := query_db("SELECT * FROM user WHERE user_id = 1", true)
@@ -768,29 +903,22 @@ func main() {
 	// 	Email:    userData[0]["email"].(string),
 	// }
 
-	store.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   86400 * 7, // 7 days
-		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-	}
-
-	r := mux.NewRouter()
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	r.HandleFunc("/", timeline).Methods("GET")
-	r.HandleFunc("/public", public).Methods("GET")
-	r.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
-	r.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
-	r.HandleFunc("/add_message", addMessage).Methods("POST")
-	r.HandleFunc("/login", login).Methods("GET", "POST")
-	r.HandleFunc("/register", register).Methods("GET", "POST")
-	r.HandleFunc("/logout", logoutHandler).Methods("GET")
-	r.PathPrefix("/static/").Handler(s).Methods("GET")
-	r.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	router.HandleFunc("/", timeline).Methods("GET")
+	router.HandleFunc("/public", public).Methods("GET")
+  	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
+	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
+	router.HandleFunc("/add_message", addMessage).Methods("POST")
+	router.HandleFunc("/login", login).Methods("GET", "POST")
+	router.HandleFunc("/register-user", register).Methods("GET", "POST")
+	router.HandleFunc("/logout", logoutHandler).Methods("GET")
+	router.PathPrefix("/static/").Handler(s).Methods("GET")
+
+	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 	// defer g.db.Close()
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
-	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	http.Handle("/", router)
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
