@@ -71,10 +71,6 @@ const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
 
-var g struct {
-	DB *sql.DB
-}
-
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
 // Get the logged in user from the user session.
@@ -120,8 +116,6 @@ func init_db() {
 	db := connect_db()
 	defer db.Close()
 
-	g.DB = db
-
 	schema, err := os.ReadFile("schema.sql")
 	if err != nil {
 		panic(err)
@@ -150,8 +144,8 @@ func ensureDB() {
 }
 
 // THIS FUNCTION IS DISGUSTING
-func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
-	rows, err := g.DB.Query(query, args...)
+func query_db(db *sql.DB, query string, one bool, args ...any) ([]map[string]any, error) {
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,9 +195,9 @@ func query_db(query string, one bool, args ...any) ([]map[string]any, error) {
 	return out, nil
 }
 
-func get_user_id(username string) (int, error) {
+func get_user_id(db *sql.DB, username string) (int, error) {
 	var id int
-	err := g.DB.QueryRow("select user_id from user where username = ?", username).Scan(&id)
+	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
 	if err != nil {
 		return -1, err
 	}
@@ -252,8 +246,8 @@ func createTimelineMessages(queryResult []map[string]any) []*Message {
 
 func timeline(w http.ResponseWriter, r *http.Request) {
 	// TEMPORARY DATABASE CONNECTION CREATION
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	user, err := getUser(r)
 	if err != nil {
@@ -267,7 +261,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
-	data, err := query_db(`
+	data, err := query_db(db, `
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
 			user.user_id = ? OR
@@ -325,10 +319,10 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
-	data, err := query_db(`
+	data, err := query_db(db, `
 		SELECT message.*, user.* FROM message, user
 		WHERE message.flagged = 0 AND message.author_id = user.user_id
 		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
@@ -385,14 +379,14 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// TEMPORARY DATABASE CONNECTION CREATION
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	// Get username from path
 	username := mux.Vars(r)["username"]
 
 	// Check existance of user in database
-	data, err := query_db("select user_id, email from user where username = ?", true, username)
+	data, err := query_db(db, "select user_id, email from user where username = ?", true, username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -406,7 +400,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		Email:    userEmail,
 	}
 	// Get messages data
-	data, err = query_db(`
+	data, err = query_db(db, `
 		select message.*, user.* from message, user where
         user.user_id = message.author_id and user.user_id = ?
         order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
@@ -420,7 +414,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	follows := false
 	if user != nil {
-		queryCheckUserIsFollowed, err := query_db(
+		queryCheckUserIsFollowed, err := query_db(db, 
 			`select 1 from follower
 		where follower.who_id = ?
 		and follower.whom_id = ?`, true,
@@ -484,8 +478,8 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	// Check if user is logged in
 	if user == nil {
@@ -494,14 +488,14 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Get id of user to follow
 	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(username)
+	whom_id, err := get_user_id(db, username)
 
 	if err != nil {
 		http.Error(w, http.StatusText(401), 401)
 		return
 	}
 	//Insert follow into database
-	_, err = g.DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.UserID, whom_id)
+	_, err = db.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.UserID, whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -534,8 +528,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	// Create session to add flashes
 	session, err := store.Get(r, "app-session")
@@ -565,7 +559,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		user := User{}
 		var password_hash string
 
-		err = g.DB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
+		err = db.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
 		if err != nil && err != sql.ErrNoRows {
 			log.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -665,8 +659,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	session, err := store.Get(r, "app-session")
 	if err != nil {
@@ -695,14 +689,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 			err = errorGen("You have to enter a password")
 		} else if r.FormValue("password") != r.FormValue("password2") {
 			err = errorGen("The two passwords do not match")
-		} else if val, _ := get_user_id(username); val != -1 {
+		} else if val, _ := get_user_id(db, username); val != -1 {
 			err = errorGen("The username is already taken")
 		} else {
 			pw_hash, err := genereate_password_hash(r.FormValue("password"))
 			if err != nil {
 				panic(err)
 			}
-			_, err = g.DB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			_, err = db.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
 			if err != nil {
 				panic(err)
 			}
@@ -769,8 +763,8 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TEMPORARY DATABASE CONNECTION
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	err = r.ParseForm()
 	if err != nil {
@@ -779,7 +773,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	messageText := r.FormValue("text")
 	if messageText != "" {
-		g.DB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
+		db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
 			user.UserID, messageText, int(time.Now().Unix()))
 	}
 
@@ -838,8 +832,8 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.DB = connect_db()
-	defer g.DB.Close()
+	db := connect_db()
+	defer db.Close()
 
 	// Check if user is logged in
 	if user == nil {
@@ -849,9 +843,9 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get id of user to unfollow
 	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(username)
+	whom_id, err := get_user_id(db, username)
 
-	_, err = g.DB.Exec("delete from follower where who_id=? and whom_id=?", user.UserID, whom_id)
+	_, err = db.Exec("delete from follower where who_id=? and whom_id=?", user.UserID, whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
