@@ -39,59 +39,54 @@ Vagrant.configure("2") do |config|
 
 
     # Provisioning
-    server.vm.provision "shell", inline: <<-SHELL
+    server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} ,inline: <<-SHELL
       sudo apt-get update -y
+      sudo apt-get install -y ca-certificates curl gnupg lsb-release
       
-      echo "=== Removing system Go (if any) ==="
-      sudo apt-get remove -y golang-go golang-* 2>/dev/null || true
-      sudo apt-get autoremove -y || true
-
-      # CGO dependencies
-      sudo apt-get install -y gcc libsqlite3-dev
+      # Uninstall conflicting packages
+      sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
       
-      GO_VERSION="1.25.5"
-  # Detect architecture of machine
-       ARCH=$(uname -m)
-  case $ARCH in
-    x86_64)
-      GO_ARCH="amd64"
-      ;;
-    aarch64)
-      GO_ARCH="arm64"
-      ;;
-    *)
-      echo "Unsupported architecture: $ARCH"
-      exit 1
-      ;;
-  esac
+      # 3. Add Docker's official GPG key
+      sudo install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+      sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-      #sudo apt-get install -y golang-go
-      wget -q "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
-      sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
-      rm "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+      # 4. Set up the Docker repository
+      # This check was written by Gemini
+      # NOTE: For Debian Bookworm, we must use the repository for Bullseye as Docker doesn't have a Bookworm repo yet.
+      CODENAME=$(lsb_release -cs)
+      if [ "$CODENAME" = "bookworm" ]; then
+        CODENAME="bullseye"
+      fi
+      echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+        $CODENAME stable" | \
+        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-      # Ensure new Go is first in path
-      echo 'export PATH=/usr/local/go/bin:$PATH' | sudo tee /etc/profile.d/go.sh
-      source /etc/profile.d/go.sh
+      # Update package list again (for some reason it won't work if we don't)
+      sudo apt-get update
 
-      # verify go version
-      echo "=== Go environment ==="
-      which go
-      go version
-      
-      mkdir -p /home/vagrant
-      cp -r /vagrant/* /home/vagrant/
-      cd /home/vagrant
+      # Docker engine
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-      export CGO_ENABLED=1   # explicitly enable CGO
-      go mod tidy
-      go build -o minitwit ./src
-      echo "grab a cup of coffee this step takes a minute"
-      pkill -9 "minitwit" # make sure to kill the process if its currently running
-      nohup ./minitwit > app.log 2>&1 &
+      # Stop and remove any existing container named minitwitimage
+      IMAGE_NAME="minitwitimage"
+      if [ "$(sudo docker ps -q -f name=$IMAGE_NAME)" ]; then
+          sudo docker stop $IMAGE_NAME
+      fi
+      if [ "$(sudo docker ps -aq -f status=exited -f name=$IMAGE_NAME)" ]; then
+          sudo docker rm $IMAGE_NAME
+      fi
+
+      # Set image name
+      DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
+
+      # Pull the latest image and run the container
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 "$DOCKER_IMAGE"
+
 
       echo "===================================="
-      echo "Minitwit deployed!"
+      echo "Minitwit deployed from $DOCKER_IMAGE!"
       echo "===================================="
 
       IP=$(hostname -I | awk '{print $1}')
