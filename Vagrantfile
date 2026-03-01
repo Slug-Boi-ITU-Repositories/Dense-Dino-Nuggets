@@ -78,7 +78,7 @@ Vagrant.configure("2") do |config|
           sudo docker rm $IMAGE_NAME
       fi
 
-      # Set default image name if environment variable is not set or empty
+      # Set image name
       DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
 
       # Pull the latest image and run the container
