@@ -9,6 +9,7 @@ Vagrant.configure("2") do |config|
     server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
+      config.vm.synced_folder "/tmp/minitwit/", "/tmp/minitwit" , owner: "root", group: "root"
       override.vm.box = "utm/bookworm"
       u.memory = 2048
       u.cpus = 2
@@ -80,9 +81,15 @@ Vagrant.configure("2") do |config|
 
       # Set image name
       DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
+      
+      # Check if db exists
+      if [ ! -f "/tmp/minitwit/minitwit.db" ]; then
+        mkdir -p /tmp/minitwit
+        touch /tmp/minitwit/minitwit.db
+      fi
 
       # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 "$DOCKER_IMAGE"
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /tmp/minitwit/minitwit.db:/tmp/minitwit.db "$DOCKER_IMAGE"
 
 
       echo "===================================="
