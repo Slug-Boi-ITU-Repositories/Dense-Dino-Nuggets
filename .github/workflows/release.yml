@@ -20,6 +20,8 @@ jobs:
           args: test --src=.
   # Add concurency here?
   build:
+    needs: test
+    if: success() 
     runs-on: ubuntu-latest
     steps:
       - name: Setup environment
@@ -48,6 +50,7 @@ jobs:
               chore: Chores
               ci: CI
               cd: CD
+              ci/cd: CI/CD
               style: Code Style
               revert: Reverts
       - name: Create release
@@ -58,6 +61,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   publish:
+    needs: test
+    if: success() 
     name: publish
     runs-on: ubuntu-latest
     steps:
