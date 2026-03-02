@@ -41,3 +41,30 @@ $ ./minitwit
 ## Setup for developers
 
 If you would like to build on this application you have to download `go` as well as have a `C` compiler to compile the flag tool used to flag tweets in the system. You will also need docker and vagrant if you would like to run the application in a container and provision it as a VM or on digital ocean
+
+## Setup for vagrant
+
+Required plugins for vagrant:
+```
+vagrant-digitalocean
+vagrant-scp
+vagrant-parallels
+vagrant-reload
+vagrant-vbguest
+(for mac users)
+vagrant_utm
+```
+
+Also if you want to mount your own db you need to put it in the directory:
+`/tmp/minitwit/`
+
+Set environment variables (remember to upload private ssh key to Digital ocean):
+```
+DIGITAL_OCEAN_TOKEN
+SSH_KEY_NAME
+DOCKER_USERNAME
+```
+
+And run with either utm virtualbox or digital_ocean provider:
+
+`vagrant up --provider=<provider>`
