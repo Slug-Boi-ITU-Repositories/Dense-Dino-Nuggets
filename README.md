@@ -13,7 +13,7 @@ A prerequiste is that you must have docker installed on your system in some way 
 - Download/pull the image
 
 ```bash
-\$ docker pull flakiator/minitwitimage
+$ docker pull flakiator/minitwitimage
 ```
 
 - Run the docker image  
@@ -33,7 +33,7 @@ docker run -d -p 8080:8080 -v /tmp/minitwit.db:/tmp/minitwit.db --rm flakiator/m
 - Run the application using  
 
 ```bash
-\$ ./minitwit
+$ ./minitwit
 ```
 
 - You can now go to the website on localhost:8080
