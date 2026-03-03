@@ -516,7 +516,7 @@ func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterR
 		}), nil
 	}
 
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
 		return Response(http.StatusInternalServerError, ErrorResponse{
 			Status:   http.StatusInternalServerError,

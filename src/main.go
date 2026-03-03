@@ -205,7 +205,7 @@ func get_user_id(db *sql.DB, username string) (int, error) {
 }
 
 func genereate_password_hash(pass string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(pass), 14)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(pass), 10)
 	return string(bytes), err
 }
 
