@@ -20,6 +20,8 @@ import (
 	"context"
 	"dagger/ddn/internal/dagger"
 	"fmt"
+	"net"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -70,17 +72,29 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 }
 
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-	return m.BuildEnv(src).
-		WithWorkdir("./src").
+	// Build the base container
+	container := m.BuildEnv(src).WithWorkdir("./src").
 		WithExec([]string{
 			"sh", "-c",
-			// install netcat, start server in background, wait until port 8080 is ready, then run tests
-			"apt-get update && apt-get install -y netcat-openbsd && " +
-				"go run main.go & " +
-				"while ! nc -z localhost 8080; do sleep 0.1; done; " +
-				"go test ./...",
-		}).
-		Stdout(ctx)
+			"go run main.go & sleep 1 && go test ./...",
+		})
+
+	// Instead of relying on nc, you could poll the port in Go
+	timeout := time.After(10 * time.Second)
+	tick := time.Tick(100 * time.Millisecond)
+
+	for {
+		select {
+		case <-timeout:
+			return "", fmt.Errorf("server did not start on port 8080 in time")
+		case <-tick:
+			conn, err := net.Dial("tcp", "localhost:8080")
+			if err == nil {
+				conn.Close()
+				return container.Stdout(ctx)
+			}
+		}
+	}
 }
 
 func (m *Ddn) Lint(ctx context.Context, src *dagger.Directory) (string, error) {
