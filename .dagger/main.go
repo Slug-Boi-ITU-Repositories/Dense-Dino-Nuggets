@@ -74,8 +74,11 @@ func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
 		WithWorkdir("./src").
 		WithExec([]string{
 			"sh", "-c",
-			// start server, wait for port, run tests
-			"go run main.go & while ! nc -z localhost 8080; do sleep 0.1; done; go test ./...",
+			// install netcat, start server in background, wait until port 8080 is ready, then run tests
+			"apt-get update && apt-get install -y netcat && " +
+				"go run main.go & " +
+				"while ! nc -z localhost 8080; do sleep 0.1; done; " +
+				"go test ./...",
 		}).
 		Stdout(ctx)
 }
