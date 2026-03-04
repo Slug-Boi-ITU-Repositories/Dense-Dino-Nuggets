@@ -70,13 +70,12 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 }
 
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-	//return m.BuildEnv(src).WithWorkdir("./src").WithExec([]string{"go", "test", "./..."}).Stdout(ctx)
 	return m.BuildEnv(src).
 		WithWorkdir("./src").
 		WithExec([]string{
 			"sh", "-c",
-			// start server in background & then run tests
-			"go run main.go & sleep 1 && go test ./...",
+			// start server, wait for port, run tests
+			"go run main.go & while ! nc -z localhost 8080; do sleep 0.1; done; go test ./...",
 		}).
 		Stdout(ctx)
 }
