@@ -33,6 +33,20 @@ type QuerierImpl struct {
 
 func (q *QuerierImpl) GetUserByUsername(username string) (*model.User, error) {
     var user model.User
-    err := q.Where("username = ?", username).First(&user).Error
+    err := q.Table("user").Where("username = ?", username).First(&user).Error
     return &user, err
 }
+
+func (q *QuerierImpl) GetUserFollowers(userID uint) ([]model.User, error) {
+    var followers []model.User
+    err := q.Table("follower").Where("who_id = ?", userID).Find(&followers).Error
+    return followers, err
+}
+
+func (q *QuerierImpl) GetUserMessages(userID uint) ([]model.Message, error) {
+    var messages []model.Message
+    err := q.Table("user").Where("user_id = ?", userID).Find(messages).Error
+    return messages, err    
+}
+
+
