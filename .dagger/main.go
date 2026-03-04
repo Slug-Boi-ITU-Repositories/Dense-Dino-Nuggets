@@ -75,7 +75,7 @@ func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
 		WithExec([]string{
 			"sh", "-c",
 			// install netcat, start server in background, wait until port 8080 is ready, then run tests
-			"apt-get update && apt-get install -y netcat && " +
+			"apt-get update && apt-get install -y netcat-openbsd && " +
 				"go run main.go & " +
 				"while ! nc -z localhost 8080; do sleep 0.1; done; " +
 				"go test ./...",
