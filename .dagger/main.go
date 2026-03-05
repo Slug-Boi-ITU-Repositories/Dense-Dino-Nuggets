@@ -70,9 +70,7 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 }
 
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-    testContainer := m.BuildEnv(src).WithWorkdir("./src").WithExec([]string{"go", "test", "./..."})
-    
-    return testContainer.Stdout(ctx)
+	return m.BuildEnv(src).WithWorkdir("./src").WithExec([]string{"go", "test", "./..."}).Stdout(ctx)
 }
 
 func (m *Ddn) Lint(ctx context.Context, src *dagger.Directory) (string, error) {
@@ -104,4 +102,21 @@ func (m *Ddn) RunAllTests(ctx context.Context, src *dagger.Directory) error {
 	// Wait for all tests to complete
 	// If any test fails, the error will be returned
 	return eg.Wait()
+}
+
+func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory, username string, password *dagger.Secret) (string, error) {
+	// First, build the container using your Dockerfile
+	container := src.DockerBuild()
+
+	// Configure Docker registry authentication
+	registry := "docker.io" // Default Docker Hub registry
+
+	// Tag the container with a version (you might want to make this configurable)
+	tag := "latest" // Consider passing this as a parameter or using git commit hash
+	imageRef := fmt.Sprintf("%s/%s:%s", username, "minitwitimage", tag)
+
+	// Publish the container to Docker Hub
+	return container.
+		WithRegistryAuth(registry, username, password).
+		Publish(ctx, imageRef)
 }
