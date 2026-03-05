@@ -66,7 +66,11 @@ func register_and_login(client *http.Client, username string, password string) (
 	if err != nil {
 		return nil, client, err
 	}
-	defer r.Body.Close()
+	defer func(r *http.Response) {
+		if err := r.Body.Close(); err != nil {
+			panic(err)
+		}
+	}(r)
 	r, err = helper_login_with_client(client, username, password)
 	if err != nil {
 		return nil, client, err
@@ -133,7 +137,11 @@ func assertContainsNot(t *testing.T, body, substr string) {
 // lil' helper function for reading the response and converting it to a string
 func readBody(t *testing.T, r *http.Response) string {
 	t.Helper()
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			panic(err)
+		}
+	}()
 
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -211,18 +219,18 @@ func TestLogin_logout(t *testing.T) {
 	}
 	assertContains(t, readBody(t, r), "You were logged out")
 
-	r, http_client, err = helper_login(username, "wrongpassword")
+	r, _, err = helper_login(username, "wrongpassword")
 	if err != nil {
 		t.Fatalf("helper_login failed: %v", err)
 	}
-	assertContains(t, readBody(t, r), "Invalid password")
+	assertContains(t, strings.ToLower(readBody(t, r)), "invalid password")
 
 	// This has to use a username that is not in the db
-	r, http_client, err = helper_login("notInDB", "wrongpassword")
+	r, _, err = helper_login("notInDB", "wrongpassword")
 	if err != nil {
 		t.Fatalf("helper_login failed: %v", err)
 	}
-	assertContains(t, readBody(t, r), "Invalid username")
+	assertContains(t, strings.ToLower(readBody(t, r)), "invalid username")
 }
 
 func TestMessage_recording(t *testing.T) {
@@ -234,15 +242,19 @@ func TestMessage_recording(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register_and_login failed: %v", err)
 	}
-	io.ReadAll(r.Body) // Not sure if this is needed
-	r.Body.Close()
+	if _, err = io.ReadAll(r.Body); err != nil { // Not sure if this is needed
+		t.Fatal(err)
+	}
+	if err = r.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
 
-	r, err = add_message(http_client, "test message 1")
+	_, err = add_message(http_client, "test message 1")
 	if err != nil {
 		t.Fatalf("add_message failed: %v", err)
 	}
 
-	r, err = add_message(http_client, "<test message 2>")
+	_, err = add_message(http_client, "<test message 2>")
 	if err != nil {
 		t.Fatalf("add_message failed: %v", err)
 	}
@@ -279,6 +291,9 @@ func TestTimelines(t *testing.T) {
 	client2 := newTestClient()
 	username2 := fmt.Sprintf("user_%d", time.Now().UnixNano())
 	_, http_client2, err := register_and_login(client2, username2, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	_, err = add_message(http_client2, "the message by bar")
 	if err != nil {
@@ -322,11 +337,17 @@ func TestTimelines(t *testing.T) {
 
 	//but on the user's page we only want the user's message
 	r, err = http_client2.Get(BASE_URL + "/" + username2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	body = readBody(t, r)
 	assertContainsNot(t, body, "the message by foo")
 	assertContains(t, body, "the message by bar")
 
 	r, err = http_client2.Get(BASE_URL + "/" + username)
+	if err != nil {
+		t.Fatal(err)
+	}
 	body = readBody(t, r)
 	assertContains(t, body, "the message by foo")
 	assertContainsNot(t, body, "the message by bar")
