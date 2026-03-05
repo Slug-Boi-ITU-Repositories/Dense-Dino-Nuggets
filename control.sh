@@ -6,13 +6,14 @@ if [ "$1" = "init" ]; then
         exit 1
     fi
     echo "Putting a database to /tmp/minitwit.db..."
-    python3 -c"from minitwit import init_db;init_db()"
+    # This is currently the best we can do as the db is auto inited when not found
+    timeout 30 go run ./src/main.go 
 elif [ "$1" = "startprod" ]; then
      echo "Starting minitwit with production webserver..."
      nohup "$HOME"/.local/bin/gunicorn --workers 4 --timeout 120 --bind 0.0.0.0:5000 minitwit:app > /tmp/out.log 2>&1 &
 elif [ "$1" = "start" ]; then
     echo "Starting minitwit..."
-    nohup "which python" minitwit.py > /tmp/out.log 2>&1 &
+    nohup go run ./src/main.go > /tmp/out.log 2>&1 &
 elif [ "$1" = "stop" ]; then
     echo "Stopping minitwit..."
     pkill -f minitwit

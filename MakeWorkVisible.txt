@@ -1,3 +1,7 @@
+18/02
+Use `openapi-generator generate -i swagger3.json -g go-server -o ./out` to generate apimodels for the webapp apimodels.
+Imported the generated go module into the webapp.
+
 13/02
 We have merged a lot of PRs and resolved a lot of issues, 
 regarding the refactoring of minitwit.

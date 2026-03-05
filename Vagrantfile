@@ -79,7 +79,7 @@ Vagrant.configure("2") do |config|
       which go
       go version
       
-      mkdir /home/vagrant
+      mkdir -p /home/vagrant
       cp -r /vagrant/* /home/vagrant/
       cd /home/vagrant
 
@@ -87,6 +87,7 @@ Vagrant.configure("2") do |config|
       go mod tidy
       go build -o minitwit ./src
       echo "grab a cup of coffee this step takes a minute"
+      pkill -9 "minitwit" # make sure to kill the process if its currently running
       nohup ./minitwit > app.log 2>&1 &
 
       echo "===================================="
