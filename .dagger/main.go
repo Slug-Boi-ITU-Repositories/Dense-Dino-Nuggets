@@ -20,8 +20,6 @@ import (
 	"context"
 	"dagger/ddn/internal/dagger"
 	"fmt"
-	"net"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -72,29 +70,9 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 }
 
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-	// Build the base container
-	container := m.BuildEnv(src).WithWorkdir("./src").
-		WithExec([]string{
-			"sh", "-c",
-			"go run main.go & sleep 1 && go test ./...",
-		})
-
-	// Instead of relying on nc, you could poll the port in Go
-	timeout := time.After(10 * time.Second)
-	tick := time.Tick(100 * time.Millisecond)
-
-	for {
-		select {
-		case <-timeout:
-			return "", fmt.Errorf("server did not start on port 8080 in time")
-		case <-tick:
-			conn, err := net.Dial("tcp", "localhost:8080")
-			if err == nil {
-				conn.Close()
-				return container.Stdout(ctx)
-			}
-		}
-	}
+    testContainer := m.BuildEnv(src).WithWorkdir("./src").WithExec([]string{"go", "test", "./..."})
+    
+    return testContainer.Stdout(ctx)
 }
 
 func (m *Ddn) Lint(ctx context.Context, src *dagger.Directory) (string, error) {
