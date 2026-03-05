@@ -69,8 +69,17 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 	return outputs
 }
 
+func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
+	return src.DockerBuild().
+		AsService(dagger.ContainerAsServiceOpts{Args: []string{"./main"}})
+}
+
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-	return m.BuildEnv(src).WithWorkdir("./src").WithExec([]string{"go", "test", "./..."}).Stdout(ctx)
+	return m.BuildEnv(src).
+		WithWorkdir("./src").
+		WithServiceBinding("localhost", m.ServerService(src)).
+		WithExec([]string{"go", "test", "./..."}).
+		Stdout(ctx)
 }
 
 func (m *Ddn) Lint(ctx context.Context, src *dagger.Directory) (string, error) {
