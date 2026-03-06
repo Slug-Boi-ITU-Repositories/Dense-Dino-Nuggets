@@ -9,6 +9,8 @@ migrate our repo ("somewhat" decoupled from github)
 We are mounting our database to the container running our app.
 (Because our database is a file it does not make sense to host it on a different container)
 
+We were behind on documentation so we had a session where we worked on it.
+
 ## 27/02
 
 We have started implementing GORM. We have decided to use GORM since it is one of the largest
