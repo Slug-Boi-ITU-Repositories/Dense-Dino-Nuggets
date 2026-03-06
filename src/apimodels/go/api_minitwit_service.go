@@ -23,8 +23,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// to run locally change to ./db/minitwit.db
 const (
-	apiDatabasePath    = "/tmp/minitwit.db"
+	apiDatabasePath    = "/db/minitwit.db"
 	simulatorAuthToken = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
 	authErrorMessage   = "You are not authorized to use this resource!"
 )

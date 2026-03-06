@@ -65,8 +65,8 @@ type TimelineData struct {
 	Follows     bool
 	Endpoint    string
 }
-
-const DATABASE = "/tmp/minitwit/minitwit.db"
+// Change to ./db/minitwit.db when running outside of docker
+const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
