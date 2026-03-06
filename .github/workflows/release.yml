@@ -71,7 +71,6 @@ jobs:
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
         with:
           version: "latest"
           verb: call
