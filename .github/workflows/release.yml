@@ -76,7 +76,7 @@ jobs:
         with:
           version: "latest"
           verb: call
-          module: github.com/kpenfound/dagger-modules/golang@v0.2.0
+          module: .
           args: publish --src=. --username=env:DOCKER_USERNAME --password=env:DOCKER_PASSWORD
 
   
