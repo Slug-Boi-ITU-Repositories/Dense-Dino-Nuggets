@@ -9,7 +9,8 @@ Vagrant.configure("2") do |config|
     server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
-      config.vm.synced_folder "/tmp/minitwit/", "/tmp/minitwit" , owner: "root", group: "root"
+      config.vm.synced_folder "/tmp/minitwit", "/tmp/minitwit"
+      override.vm.synced_folder ".", "/vagrant", disabled: true
       override.vm.box = "utm/bookworm"
       u.memory = 2048
       u.cpus = 2
