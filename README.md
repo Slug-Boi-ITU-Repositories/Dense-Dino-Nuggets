@@ -68,3 +68,31 @@ DOCKER_USERNAME
 And run with either utm virtualbox or digital_ocean provider:
 
 `vagrant up --provider=<provider>`
+
+## Running dagger workflows
+
+Make sure the dagger engine is running
+
+From the root of the project open dagger:
+```bash
+$ dagger
+```
+
+**The workflows that can be run:**
+
+**Build**. *For building binaries for linux and mac*
+```bash
+$ build --src=.
+```
+**Test**. *For running tests for the system*
+```bash
+$ test --src=.
+```
+**Lint**. *Running linting for the system*
+```bash
+$ lint --src=.
+```
+**Publish**. *Building and publishing docker image to DockerHub*
+```bash
+$ dagger call publish --src . --username "flakiator" --password "DOCKER_PASSWORD"
+```
