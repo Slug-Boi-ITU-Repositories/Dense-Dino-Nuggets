@@ -16,6 +16,8 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
+RUN mkdir -p /db
+
 COPY --from=builder /out/main .
 COPY --from=builder /app/templates ./templates/
 COPY --from=builder /app/static ./static/
