@@ -3,13 +3,11 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.synced_folder ".", "/vagrant"
-
   config.vm.define "minitwit" do |server|
     server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
-      config.vm.synced_folder "/tmp/minitwit/", "/tmp/minitwit" , owner: "root", group: "root"
+      config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
       override.vm.box = "utm/bookworm"
       u.memory = 2048
       u.cpus = 2
@@ -26,7 +24,6 @@ Vagrant.configure("2") do |config|
     server.vm.provider :digital_ocean do |provider, override|
       override.vm.box = "digital_ocean"
       override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
-      override.vm.synced_folder ".", "/vagrant", type: "rsync"
       provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
       override.ssh.private_key_path = '~/.ssh/devops_rsa'
@@ -83,12 +80,12 @@ Vagrant.configure("2") do |config|
       DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
       
       # Check if db exists
-      if [ ! -f "/tmp/minitwit/minitwit.db" ]; then
-        mkdir -p /tmp/minitwit
+      if [ ! -f "/db/minitwit.db" ]; then
+        mkdir -p /db/
       fi
 
       # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /tmp/minitwit/:/tmp/ "$DOCKER_IMAGE"
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /db/:/db/ "$DOCKER_IMAGE"
 
 
       echo "===================================="
