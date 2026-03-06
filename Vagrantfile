@@ -85,11 +85,10 @@ Vagrant.configure("2") do |config|
       # Check if db exists
       if [ ! -f "/tmp/minitwit/minitwit.db" ]; then
         mkdir -p /tmp/minitwit
-        touch /tmp/minitwit/minitwit.db
       fi
 
       # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /tmp/minitwit/minitwit.db:/tmp/minitwit.db "$DOCKER_IMAGE"
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /tmp/minitwit/:/tmp/ "$DOCKER_IMAGE"
 
 
       echo "===================================="
