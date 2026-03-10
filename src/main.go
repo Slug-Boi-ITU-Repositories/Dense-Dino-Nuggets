@@ -890,14 +890,14 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Get id of user to unfollow
 	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(SQLDB, username)
+	whom_id, err := UserRepo.GetUserIDByUsername(username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, "User could not be found", http.StatusNotFound)
 		return
 	}
 
-	_, err = SQLDB.Exec("delete from follower where who_id=? and whom_id=?", user.UserID, whom_id)
+	err = FollowerRepo.Unfollow(uint(user.UserID), whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
