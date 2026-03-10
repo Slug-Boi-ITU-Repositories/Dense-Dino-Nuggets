@@ -1,0 +1,25 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - minitwit-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  minitwit:
+    image: minitwit-monitoring:latest
+    volumes:
+      - ./db/:/db/
+    ports:
+      - "8080:8080"
+    networks:
+      - minitwit-network
+
+networks:
+  minitwit-network:
+    external: false
+    name: minitwit-network
