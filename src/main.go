@@ -725,7 +725,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				panic(err)
 			}
-			_, err = SQLDB.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", username, email, pw_hash)
+			err = UserRepo.RegisterUser(username, email, pw_hash)
 			if err != nil {
 				panic(err)
 			}

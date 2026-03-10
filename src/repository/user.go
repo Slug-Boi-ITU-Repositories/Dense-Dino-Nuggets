@@ -49,6 +49,16 @@ func (r *UserRepository) GetUserIDByUsername(username string) (uint, error) {
 	return user.UserID, err
 }
 
+// Register a new user in the database
+func (r *UserRepository) RegisterUser(username, email, pwHash string) error {
+	user := model.User{
+		Username: username,
+		Email:    email,
+		PwHash:   pwHash,
+	}
+	return r.db.Create(&user).Error
+}
+
 
 func (r *UserRepository) Create(user *model.User) error {
 	return r.db.Create(user).Error
