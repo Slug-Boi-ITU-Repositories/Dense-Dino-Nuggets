@@ -21,7 +21,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	
 	"golang.org/x/crypto/bcrypt"
@@ -973,12 +972,11 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	reg := prometheus.NewRegistry()
-	reg.MustRegister(
+	// reg.MustRegister(
 		
-		collectors.NewGoCollector(),
-		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	)
-
+	// 	collectors.NewGoCollector(),
+	// 	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	// )
 
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
@@ -989,7 +987,7 @@ func main() {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	MinitwitAPIService := openapi.NewMinitwitAPIService()
+	MinitwitAPIService := openapi.NewMinitwitAPIService(reg)
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)

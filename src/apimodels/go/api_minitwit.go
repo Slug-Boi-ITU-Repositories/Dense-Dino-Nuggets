@@ -20,7 +20,7 @@ import (
 
 // MinitwitAPIController binds http requests to an api service and writes the service results to the http response
 type MinitwitAPIController struct {
-	service MinitwitAPIServicer
+	service      MinitwitAPIServicer
 	errorHandler ErrorHandler
 }
 
