@@ -568,28 +568,24 @@ func login(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
-		user := User{}
-		var password_hash string
-
-		err = SQLDB.QueryRow("SELECT * FROM user WHERE username = ?", username).Scan(&user.UserID, &user.Username, &user.Email, &password_hash)
-		if err != nil && err != sql.ErrNoRows {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// THIS IS SO BAD FOR SECURITY HOLY HELL
-		//TODO: FIX THIS ASAP WHEN WE ACTUALLY REFACTOR FOR REAL
-		if user.Username == "" || err == sql.ErrNoRows {
-			loginErr = errors.New("invalid username")
-			session.AddFlash("Invalid username")
-			err = session.Save(r, w)
-			if err != nil {
+		// Get user from repository
+		modelUser, err := UserRepo.GetUserByUsername(username)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				loginErr = errors.New("invalid username")
+				session.AddFlash("Invalid username")
+				err = session.Save(r, w)
+				if err != nil {
+					log.Println(err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+			} else {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-		} else if !check_password_hash(password, password_hash) {
+		} else if !check_password_hash(password, modelUser.PwHash) {
 			loginErr = errors.New("invalid password")
 			session.AddFlash("Invalid password")
 			err = session.Save(r, w)
@@ -599,6 +595,13 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
+			// Convert model.User to User for session
+			user := User{
+				UserID:   int(modelUser.UserID),
+				Username: modelUser.Username,
+				Email:    modelUser.Email,
+			}
+
 			session.AddFlash("You were logged in")
 			err = session.Save(r, w)
 			if err != nil {
@@ -611,6 +614,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 			user_session.Values["user"] = userJson
 			err = user_session.Save(r, w)

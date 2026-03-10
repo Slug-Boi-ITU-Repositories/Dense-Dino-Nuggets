@@ -59,7 +59,6 @@ func (r *UserRepository) RegisterUser(username, email, pwHash string) error {
 	return r.db.Create(&user).Error
 }
 
-
 func (r *UserRepository) Create(user *model.User) error {
 	return r.db.Create(user).Error
 }
