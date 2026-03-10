@@ -803,8 +803,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	messageText := r.FormValue("text")
 	if messageText != "" {
-		_, err = SQLDB.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)",
-			user.UserID, messageText, int(time.Now().Unix()))
+		err = MessageRepo.AddMessage(uint(user.UserID), messageText)
 		if err != nil {
 			log.Println(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)

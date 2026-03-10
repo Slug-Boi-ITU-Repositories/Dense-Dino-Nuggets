@@ -2,6 +2,8 @@ package repository
 
 import (
 	"minitwit/src/model"
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -31,6 +33,17 @@ func (r *MessageRepository) GetUserTimeline(userID uint, limit int) ([]model.Mes
         Limit(limit).
         Find(&messages).Error
     return messages, err
+}
+
+// Function for adding a new message to the database
+func (r *MessageRepository) AddMessage(authorID uint, text string) error {
+    message := model.Message{
+        AuthorID: authorID,
+        Text:     text,
+        PubDate:  time.Now().Unix(),
+        Flagged:  0,
+    }
+    return r.db.Create(&message).Error
 }
 
 func (r *MessageRepository) Create(message *model.Message) error {
