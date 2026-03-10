@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	apiDatabasePath    = "/tmp/minitwit.db"
+	apiDatabasePath    = "/db/minitwit.db"
 	simulatorAuthToken = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
 	authErrorMessage   = "You are not authorized to use this resource!"
 )

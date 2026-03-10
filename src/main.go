@@ -8,6 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"minitwit/src/db"
+	"minitwit/src/model"
+	"minitwit/src/repository"
 	"net/http"
 	"os"
 	"strings"
@@ -77,6 +80,12 @@ var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-byt
 
 var SQLDB *sql.DB
 var GormDB *gorm.DB
+
+// Add repositories as globals
+var UserRepo *repository.UserRepository
+var MessageRepo *repository.MessageRepository
+var FollowerRepo *repository.FollowerRepository
+
 // Get the logged in user from the user session.
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
@@ -419,7 +428,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 
 	follows := false
 	if user != nil {
-		queryCheckUserIsFollowed, err := query_db(SQLDB, 
+		queryCheckUserIsFollowed, err := query_db(SQLDB,
 			`select 1 from follower
 		where follower.who_id = ?
 		and follower.whom_id = ?`, true,
@@ -490,13 +499,13 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Get id of user to follow
 	username := mux.Vars(r)["username"]
-	whom_id, err := get_user_id(SQLDB, username)
+	whom_id, err := UserRepo.GetUserIDByUsername(username)
 	if err != nil {
 		http.Error(w, "No user was found", http.StatusNotFound)
 		return
 	}
 	//Insert follow into database
-	_, err = SQLDB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.UserID, whom_id)
+	err = FollowerRepo.Follow(uint(user.UserID), whom_id)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -541,7 +550,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	var loginErr error;
+	var loginErr error
 	if r.Method == "POST" {
 		err = r.ParseForm()
 		if err != nil {
@@ -915,10 +924,10 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
-		Path:    "/",
-		MaxAge:  86400 * 7, // 7 days
+		Path:     "/",
+		MaxAge:   86400 * 7, // 7 days
 		HttpOnly: true,
-		Secure:  false, // No ssl cert
+		Secure:   false, // No ssl cert
 		SameSite: http.SameSiteLaxMode,
 	}
 
@@ -931,12 +940,23 @@ func main() {
 	SQLDB = connect_db() // Create global db connection to avoid opening and closing connections repeatedly
 	defer SQLDB.Close()
 	// Create global GORM connection
-	/*GormDB, err := gorm.Open(sqlite.Open(DATABASE), &gorm.Config{})
+	GormDB, err := db.Connect(DATABASE)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
-	}*/
+		log.Fatal("Failed to connect to database with GORM:", err)
+	}
+	// Initialize repositories
+	UserRepo = repository.NewUserRepository(GormDB)
+	MessageRepo = repository.NewMessageRepository(GormDB)
+	FollowerRepo = repository.NewFollowerRepository(GormDB)
 
-
+	// Test GORM connection and model mapping
+	var user model.User
+	err = GormDB.Preload("Messages").Where("username = ? ", "hest").First(&user).Error
+	if err != nil {
+		log.Println("Error:", err)
+	} else {
+		log.Printf("User found: %+v\n", user)
+	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	router.HandleFunc("/", timeline).Methods("GET")
 	router.HandleFunc("/public", public).Methods("GET")
@@ -946,7 +966,7 @@ func main() {
 	router.HandleFunc("/logout", logoutHandler).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 
-  	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
+	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
 

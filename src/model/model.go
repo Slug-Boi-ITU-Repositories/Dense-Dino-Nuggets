@@ -18,9 +18,6 @@ func (User) TableName() string {
 type Follower struct {
     WhoID  uint `gorm:"column:who_id;index:idx_follower_who"`
     WhomID uint `gorm:"column:whom_id;index:idx_follower_whom"`
-    
-    Who  User `gorm:"foreignKey:WhoID;references:UserID"`
-    Whom User `gorm:"foreignKey:WhomID;references:UserID"`
 }
 
 func (Follower) TableName() string {
