@@ -10,6 +10,15 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
 
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+    ports:
+      - "3000:3000"
+    networks:
+      - minitwit-network
+
   minitwit:
     image: minitwit-monitoring:latest
     volumes:
