@@ -163,62 +163,6 @@ func ensureDB() {
 	}
 }
 
-// THIS FUNCTION IS DISGUSTING
-func query_db(db *sql.DB, query string, one bool, args ...any) ([]map[string]any, error) {
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	defer func() {
-		if err := rows.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-
-	out := []map[string]any{}
-
-	for rows.Next() {
-		values := make([]any, len(cols))
-		pointers := make([]any, len(cols))
-		for i := range values {
-			pointers[i] = &values[i]
-		}
-
-		if err := rows.Scan(pointers...); err != nil {
-			return nil, err
-		}
-
-		row := make(map[string]any, len(cols))
-		for i, col := range cols {
-			row[col] = values[i]
-		}
-		out = append(out, row)
-		// Terminate early if we only want one result
-		if one {
-			break
-		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	if len(out) == 0 {
-		return nil, sql.ErrNoRows
-	}
-
-	if one {
-		return []map[string]any{out[0]}, nil
-	}
-	return out, nil
-}
-
 func get_user_id(db *sql.DB, username string) (int, error) {
 	var id int
 	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
