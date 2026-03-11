@@ -27,11 +27,10 @@ func (Follower) TableName() string {
 type Message struct {
     MessageID uint   `gorm:"primaryKey;autoIncrement;column:message_id"`
     AuthorID  uint   `gorm:"not null;column:author_id;index:idx_message_author"`
+    Author    User   `gorm:"foreignKey:AuthorID"`
     Text      string `gorm:"not null;column:text"`
     PubDate   int64  `gorm:"column:pub_date"`
     Flagged   int    `gorm:"column:flagged;default:0"`
-    
-    Author User `gorm:"foreignKey:AuthorID;references:UserID"`
 }
 
 func (Message) TableName() string {

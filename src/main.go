@@ -65,7 +65,7 @@ type LoginData struct {
 
 type TimelineData struct {
 	BaseTemplateData
-	Messages    []*Message
+	Messages    []model.Message
 	ProfileUser *User
 	Follows     bool
 	Endpoint    string
@@ -238,9 +238,8 @@ func check_password_hash(password, hash string) bool {
 	return err == nil
 }
 
-func format_datetime(timestamp time.Time) string {
-	// This example time is the reference time for golang time formatting
-	return timestamp.Format("2006-01-02 @ 15:04")
+func format_datetime(timestamp int64) string {
+    return time.Unix(timestamp, 0).Format("2006-01-02 @ 15:04")
 }
 
 func gravatar_url(email string, size int) string {
@@ -248,19 +247,19 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
 }
 
-func createTimelineMessages(queryResult []map[string]any) []*Message {
-	messages := make([]*Message, len(queryResult))
+func createTimelineMessages(queryResult []map[string]any) []model.Message {
+	messages := make([]model.Message, len(queryResult))
 	for i, message := range queryResult {
-		messageAuthor := &User{
-			UserID:   int(message["author_id"].(int64)),
+		messageAuthor := model.User{
+			UserID:   uint(message["author_id"].(int64)),
 			Username: template.HTMLEscapeString(message["username"].(string)),
 			Email:    template.HTMLEscapeString(message["email"].(string)),
 		}
-		newMessage := &Message{
-			MessageID: int(message["message_id"].(int64)),
+		newMessage := model.Message{
+			MessageID: uint(message["message_id"].(int64)),
 			Author:    messageAuthor,
 			Text:      template.HTMLEscapeString(message["text"].(string)),
-			PubTime:   time.Unix(message["pub_date"].(int64), 0),
+            PubDate:   message["pub_date"].(int64),
 			Flagged:   int(message["flagged"].(int64)),
 		}
 		messages[i] = newMessage
@@ -281,19 +280,12 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
-	data, err := query_db(SQLDB, `
-		SELECT message.*, user.* FROM message, user
-		WHERE message.flagged = 0 AND message.author_id = user.user_id AND (
-			user.user_id = ? OR
-			user.user_id IN (SELECT whom_id FROM follower
-								WHERE who_id = ?)
-		) ORDER BY message.pub_date DESC LIMIT ?`, false, user.UserID, user.UserID, PER_PAGE)
-	if err != nil && err != sql.ErrNoRows {
-		log.Println(err.Error())
+	messages, err := MessageRepo.GetUserTimeline(uint(user.UserID), PER_PAGE)
+	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	messages := createTimelineMessages(data)
 
 	flashes, err := getFlashes(r, w)
 	if err != nil {
