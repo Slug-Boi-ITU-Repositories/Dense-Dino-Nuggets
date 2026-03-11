@@ -247,26 +247,6 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
 }
 
-func createTimelineMessages(queryResult []map[string]any) []model.Message {
-	messages := make([]model.Message, len(queryResult))
-	for i, message := range queryResult {
-		messageAuthor := model.User{
-			UserID:   uint(message["author_id"].(int64)),
-			Username: template.HTMLEscapeString(message["username"].(string)),
-			Email:    template.HTMLEscapeString(message["email"].(string)),
-		}
-		newMessage := model.Message{
-			MessageID: uint(message["message_id"].(int64)),
-			Author:    messageAuthor,
-			Text:      template.HTMLEscapeString(message["text"].(string)),
-            PubDate:   message["pub_date"].(int64),
-			Flagged:   int(message["flagged"].(int64)),
-		}
-		messages[i] = newMessage
-	}
-	return messages
-}
-
 func timeline(w http.ResponseWriter, r *http.Request) {
 	user, err := getUser(r)
 	if err != nil {
