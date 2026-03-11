@@ -331,17 +331,12 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := query_db(SQLDB, `
-		SELECT message.*, user.* FROM message, user
-		WHERE message.flagged = 0 AND message.author_id = user.user_id
-		ORDER BY message.pub_date DESC LIMIT ?`, false, PER_PAGE)
-	if err != nil && err != sql.ErrNoRows {
+	messages, err := MessageRepo.GetPublicTimeline(PER_PAGE)
+	if err != nil{
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	messages := createTimelineMessages(data)
 
 	flashes, err := getFlashes(r, w)
 	if err != nil {
