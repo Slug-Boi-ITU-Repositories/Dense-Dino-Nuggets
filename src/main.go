@@ -622,7 +622,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			err = errorGen("You have to enter a password")
 		} else if r.FormValue("password") != r.FormValue("password2") {
 			err = errorGen("The two passwords do not match")
-		} else if val, _ := get_user_id(SQLDB, username); val != -1 {
+		} else if val, _ := UserRepo.GetUserIDByUsername(username); val != 0 {
 			err = errorGen("The username is already taken")
 		} else {
 			pw_hash, err := genereate_password_hash(r.FormValue("password"))
