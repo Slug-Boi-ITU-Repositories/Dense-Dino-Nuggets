@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/md5"
-	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,7 +23,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
-	//"gorm.io/driver/sqlite"
 )
 
 type User struct {
@@ -78,7 +76,6 @@ const SECRET_KEY = "development key"
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
-var SQLDB *sql.DB
 var GormDB *gorm.DB
 
 // Add repositories as globals
@@ -103,14 +100,6 @@ func getUser(r *http.Request) (*User, error) {
 		return nil, err
 	}
 	return user, nil
-}
-
-func connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
-	if err != nil {
-		panic(err)
-	}
-	return db
 }
 
 func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
@@ -820,8 +809,6 @@ func main() {
         fmt.Println("Database does not exist. Will initialize after connection...")
     }
 
-	SQLDB = connect_db() // Create global db connection to avoid opening and closing connections repeatedly
-	defer SQLDB.Close()
 	// Create global GORM connection
 	GormDB, err := db.Connect(DATABASE)
 	if err != nil {
