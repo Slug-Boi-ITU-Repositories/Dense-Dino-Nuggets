@@ -129,47 +129,22 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 }
 
 func init_db() {
-	db := connect_db()
-	defer func() {
-		if err := db.Close(); err != nil {
-			panic(err)
-		}
-	}()
-
-	schema, err := os.ReadFile("schema.sql")
-	if err != nil {
-		panic(err)
+	// Create test user
+	testUser := model.User{
+		Username: "testuser",
+		Email:    "testuser@hotmail.com",
+		PwHash:   "testpassword",
 	}
-
-	_, err = db.Exec(string(schema))
-	if err != nil {
-		panic(err)
+	UserRepo.Create(&testUser)
+	
+	// Create test message
+	testMessage := model.Message{
+		AuthorID: testUser.UserID,
+		Text:     "Hello world!",
+		PubDate:  time.Now().Unix(),
+		Flagged:  0,
 	}
-	// TEMPORARY: Insert a user and a message for testing
-	_, err = db.Exec("INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)", "testuser", "testuser@hotmail.com", "testpassword")
-	if err != nil {
-		panic(err)
-	}
-	_, err = db.Exec("INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, ?)", 1, "Hello world!", time.Now().Unix(), 0)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func ensureDB() {
-	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
-		fmt.Println("Database does not exist. Initializing...")
-		init_db()
-	}
-}
-
-func get_user_id(db *sql.DB, username string) (int, error) {
-	var id int
-	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
-	if err != nil {
-		return -1, err
-	}
-	return id, nil
+	MessageRepo.Create(&testMessage)
 }
 
 func genereate_password_hash(pass string) (string, error) {
@@ -838,8 +813,13 @@ func main() {
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)
+	// Check if database needs initialization
+    dbExists := true
+    if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
+        dbExists = false
+        fmt.Println("Database does not exist. Will initialize after connection...")
+    }
 
-	ensureDB()
 	SQLDB = connect_db() // Create global db connection to avoid opening and closing connections repeatedly
 	defer SQLDB.Close()
 	// Create global GORM connection
@@ -851,14 +831,9 @@ func main() {
 	UserRepo = repository.NewUserRepository(GormDB)
 	MessageRepo = repository.NewMessageRepository(GormDB)
 	FollowerRepo = repository.NewFollowerRepository(GormDB)
-
-	// Test GORM connection and model mapping
-	var user model.User
-	err = GormDB.Preload("Messages").Where("username = ? ", "hest").First(&user).Error
-	if err != nil {
-		log.Println("Error:", err)
-	} else {
-		log.Printf("User found: %+v\n", user)
+	// Seed database with test data if it doesn't exist	
+	if !dbExists {
+		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	router.HandleFunc("/", timeline).Methods("GET")
