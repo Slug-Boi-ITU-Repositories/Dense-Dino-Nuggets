@@ -387,43 +387,32 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
 
 	// Check existance of user in database
-	data, err := query_db(SQLDB, "select user_id, email from user where username = ?", true, username)
+	data, err := UserRepo.GetUserByUsername(username)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	userId := data[0]["user_id"].(int64)
-	userEmail := data[0]["email"].(string)
+	userId := data.UserID
+	userEmail := data.Email
 	pageUser := &User{
 		UserID:   int(userId),
 		Username: username,
 		Email:    userEmail,
 	}
 	// Get messages data
-	data, err = query_db(SQLDB, `
-		select message.*, user.* from message, user where
-        user.user_id = message.author_id and user.user_id = ?
-        order by message.pub_date desc limit ?`, false, userId, PER_PAGE)
-	if err != nil && err != sql.ErrNoRows {
+	messages, err := MessageRepo.GetUserTimeline(uint(userId), PER_PAGE)
+	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	messages := createTimelineMessages(data)
-
 	follows := false
 	if user != nil {
-		queryCheckUserIsFollowed, err := query_db(SQLDB,
-			`select 1 from follower
-		where follower.who_id = ?
-		and follower.whom_id = ?`, true,
-			user.UserID, pageUser.UserID,
-		)
-
+		queryCheckUserIsFollowed, err := UserRepo.IsFollowing(uint(user.UserID), uint(userId))
 		if err == nil {
-			if len(queryCheckUserIsFollowed) > 0 {
+			if queryCheckUserIsFollowed {
 				follows = true
 			}
 		}
