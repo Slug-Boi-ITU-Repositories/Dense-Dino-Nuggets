@@ -21,6 +21,10 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	_ "github.com/mattn/go-sqlite3"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -69,6 +73,7 @@ type TimelineData struct {
 	Endpoint    string
 }
 
+// Change to ./db/minitwit.db when running outside of docker
 const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
@@ -798,6 +803,13 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	reg := prometheus.NewRegistry()
+	// reg.MustRegister(
+
+	// 	collectors.NewGoCollector(),
+	// 	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+	// )
+
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -807,7 +819,7 @@ func main() {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	MinitwitAPIService := openapi.NewMinitwitAPIService()
+	MinitwitAPIService := openapi.NewMinitwitAPIService(reg)
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)
@@ -839,6 +851,7 @@ func main() {
 	router.HandleFunc("/register-user", register).Methods("GET", "POST")
 	router.HandleFunc("/logout", logoutHandler).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
+	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
 	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")

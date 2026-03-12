@@ -8,7 +8,7 @@
 *.so
 *.dylib
 flag_tool
-
+db
 # Test binary, built with `go test -c`
 *.test
 
