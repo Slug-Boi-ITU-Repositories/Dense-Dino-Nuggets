@@ -73,7 +73,6 @@ type TimelineData struct {
 	Endpoint    string
 }
 
-// Change to ./db/minitwit.db when running outside of docker
 const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
