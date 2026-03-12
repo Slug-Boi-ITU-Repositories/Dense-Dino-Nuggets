@@ -14,6 +14,7 @@ services:
     image: grafana/grafana
     volumes:
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
     ports:
       - "3000:3000"
     networks:
