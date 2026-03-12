@@ -13,7 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"text/template"
+	"html/template"
 	"time"
 
 	openapi "minitwit/src/apimodels/go"
@@ -123,7 +123,7 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 
 func init_db() {
 	// Create test user with hashed password
-	pwHash, err := genereate_password_hash("testpassword")
+	pwHash, err := generate_password_hash("testpassword")
 	if err != nil {
 		log.Printf("Warning: failed to hash password for test user: %v\n", err)
 		return
@@ -133,7 +133,11 @@ func init_db() {
 		Email:    "testuser@hotmail.com",
 		PwHash:   pwHash,
 	}
-	UserRepo.Create(&testUser)
+	err = UserRepo.Create(&testUser)
+	if err != nil {
+		log.Printf("Warning: failed to create test user: %v\n", err)
+		return
+	}
 
 	// Create test message
 	testMessage := model.Message{
@@ -142,10 +146,14 @@ func init_db() {
 		PubDate:  time.Now().Unix(),
 		Flagged:  0,
 	}
-	MessageRepo.Create(&testMessage)
+	err = MessageRepo.Create(&testMessage)
+	if err != nil {
+		log.Printf("Warning: failed to create test message: %v\n", err)
+		return
+	}
 }
 
-func genereate_password_hash(pass string) (string, error) {
+func generate_password_hash(pass string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(pass), 10)
 	return string(bytes), err
 }
@@ -598,7 +606,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if val, _ := UserRepo.GetUserIDByUsername(username); val != 0 {
 			err = errorGen("The username is already taken")
 		} else {
-			pw_hash, err := genereate_password_hash(r.FormValue("password"))
+			pw_hash, err := generate_password_hash(r.FormValue("password"))
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
