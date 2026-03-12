@@ -69,7 +69,7 @@ type TimelineData struct {
 	Endpoint    string
 }
 
-const DATABASE = "./db/minitwit.db"
+const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
