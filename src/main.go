@@ -118,14 +118,19 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
 }
 
 func init_db() {
-	// Create test user
+	// Create test user with hashed password
+	pwHash, err := genereate_password_hash("testpassword")
+	if err != nil {
+		log.Printf("Warning: failed to hash password for test user: %v\n", err)
+		return
+	}
 	testUser := model.User{
 		Username: "testuser",
 		Email:    "testuser@hotmail.com",
-		PwHash:   "testpassword",
+		PwHash:   pwHash,
 	}
 	UserRepo.Create(&testUser)
-	
+
 	// Create test message
 	testMessage := model.Message{
 		AuthorID: testUser.UserID,
@@ -147,7 +152,7 @@ func check_password_hash(password, hash string) bool {
 }
 
 func format_datetime(timestamp int64) string {
-    return time.Unix(timestamp, 0).Format("2006-01-02 @ 15:04")
+	return time.Unix(timestamp, 0).Format("2006-01-02 @ 15:04")
 }
 
 func gravatar_url(email string, size int) string {
@@ -168,7 +173,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusFound)
 		return
 	}
-	messages, err := MessageRepo.GetUserTimeline(uint(user.UserID), PER_PAGE)
+	messages, err := MessageRepo.GetPersonalTimeline(uint(user.UserID), PER_PAGE)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -220,7 +225,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 	}
 
 	messages, err := MessageRepo.GetPublicTimeline(PER_PAGE)
-	if err != nil{
+	if err != nil {
 		log.Println(err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -591,11 +596,15 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else {
 			pw_hash, err := genereate_password_hash(r.FormValue("password"))
 			if err != nil {
-				panic(err)
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 			err = UserRepo.RegisterUser(username, email, pw_hash)
 			if err != nil {
-				panic(err)
+				log.Println(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
 
 			session.AddFlash("You were successfully registered and can login now")
@@ -803,11 +812,11 @@ func main() {
 
 	router := openapi.NewRouter(MinitwitAPIController)
 	// Check if database needs initialization
-    dbExists := true
-    if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
-        dbExists = false
-        fmt.Println("Database does not exist. Will initialize after connection...")
-    }
+	dbExists := true
+	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
+		dbExists = false
+		fmt.Println("Database does not exist. Will initialize after connection...")
+	}
 
 	// Create global GORM connection
 	GormDB, err := db.Connect(DATABASE)
@@ -818,7 +827,7 @@ func main() {
 	UserRepo = repository.NewUserRepository(GormDB)
 	MessageRepo = repository.NewMessageRepository(GormDB)
 	FollowerRepo = repository.NewFollowerRepository(GormDB)
-	// Seed database with test data if it doesn't exist	
+	// Seed database with test data if it doesn't exist
 	if !dbExists {
 		init_db()
 	}
