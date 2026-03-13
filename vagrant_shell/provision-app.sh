@@ -41,7 +41,7 @@
       DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
 
       # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -e DATABASE_URL="postgres://minitwit:minitwitpassword@postgres:5432/minitwit?sslmode=disable" "$DOCKER_IMAGE" 
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -e DATABASE_URL="$DATABASE_URL" "$DOCKER_IMAGE" 
 
 
       echo "===================================="

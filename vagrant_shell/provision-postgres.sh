@@ -22,14 +22,14 @@ DO
 $do$
 BEGIN
    IF NOT EXISTS (
-      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'minitwit'
+      SELECT FROM pg_catalog.pg_roles WHERE rolname = 'philip'
    ) THEN
-      CREATE ROLE minitwit LOGIN PASSWORD 'minitwitpassword';
+      CREATE ROLE philip LOGIN PASSWORD 'admin';
    END IF;
 END
 $do$;
 
-SELECT 'CREATE DATABASE minitwit OWNER minitwit'
+SELECT 'CREATE DATABASE minitwit OWNER philip'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'minitwit')\gexec
 EOF
 

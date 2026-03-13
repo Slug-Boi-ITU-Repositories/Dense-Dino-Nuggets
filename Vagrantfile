@@ -37,7 +37,7 @@ Vagrant.configure("2") do |config|
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
     # Provisioning
-    server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} , path: "vagrant_shell/provision-app.sh"
+    server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME'], "DATABASE_URL" => ENV['DATABASE_URL']} , path: "vagrant_shell/provision-app.sh"
 
   end
 
@@ -76,8 +76,7 @@ end
 
 db.vm.network "forwarded_port", guest: 5432, host: 5432
 
-db.vm.provision "shell",
-  path: "vagrant_shell/provision-postgres.sh"
+db.vm.provision "shell", path: "vagrant_shell/provision-postgres.sh"
 
 end
 
