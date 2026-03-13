@@ -15,20 +15,19 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"minitwit/src/monitor"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// to run locally change to ./db/minitwit.db
 const (
-	apiDatabasePath    = "/db/minitwit.db"
 	simulatorAuthToken = "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh"
 	authErrorMessage   = "You are not authorized to use this resource!"
 )
@@ -62,13 +61,20 @@ func unauthorizedResponse() (ImplResponse, error) {
 	}), nil
 }
 
+func getAPIDatabaseDSN() string {
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		return dsn
+	}
+	panic("DATABASE_URL environment variable is not set!")
+}
+
 func openDB() (*sql.DB, error) {
-	return sql.Open("sqlite3", apiDatabasePath)
+	return sql.Open("postgres", getAPIDatabaseDSN())
 }
 
 func getUserID(db *sql.DB, username string) (int64, error) {
 	var id int64
-	err := db.QueryRow("select user_id from user where username = ?", username).Scan(&id)
+	err := db.QueryRow(`select user_id from "user" where username = $1`, username).Scan(&id)
 	return id, err
 }
 
@@ -124,11 +130,11 @@ func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, aut
 	}
 
 	rows, err := db.Query(`
-		select user.username
+		select u.username
 		from follower
-		join user on follower.whom_id = user.user_id
-		where follower.who_id = ?
-		limit ?`, userID, no)
+		join "user" u on follower.whom_id = u.user_id
+		where follower.who_id = $1
+		limit $2`, userID, no)
 	if err != nil {
 		return Response(http.StatusInternalServerError, ErrorResponse{
 			Status:   http.StatusInternalServerError,
@@ -208,7 +214,7 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 
 		var existing int
 		err = db.QueryRow(
-			"select 1 from follower where who_id = ? and whom_id = ?",
+			"select 1 from follower where who_id = $1 and whom_id = $2",
 			userID,
 			whomID,
 		).Scan(&existing)
@@ -220,7 +226,7 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 		}
 		if errors.Is(err, sql.ErrNoRows) {
 			if _, err := db.Exec(
-				"insert into follower (who_id, whom_id) values (?, ?)",
+				"insert into follower (who_id, whom_id) values ($1, $2)",
 				userID,
 				whomID,
 			); err != nil {
@@ -247,7 +253,7 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 		}
 
 		if _, err := db.Exec(
-			"delete from follower where who_id = ? and whom_id = ?",
+			"delete from follower where who_id = $1 and whom_id = $2",
 			userID,
 			whomID,
 		); err != nil {
@@ -293,12 +299,12 @@ func (s *MinitwitAPIService) GetMessages(ctx context.Context, authorization stri
 	defer db.Close()
 
 	rows, err := db.Query(`
-		select message.text, message.pub_date, user.username
+		select message.text, message.pub_date, u.username
 		from message
-		join user on message.author_id = user.user_id
+		join "user" u on message.author_id = u.user_id
 		where message.flagged = 0
 		order by message.pub_date desc
-		limit ?`, no)
+		limit $1`, no)
 	if err != nil {
 		return Response(http.StatusInternalServerError, ErrorResponse{
 			Status:   http.StatusInternalServerError,
@@ -374,12 +380,12 @@ func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username st
 	}
 
 	rows, err := db.Query(`
-		select message.text, message.pub_date, user.username
+		select message.text, message.pub_date, u.username
 		from message
-		join user on message.author_id = user.user_id
-		where message.flagged = 0 and user.user_id = ?
+		join "user" u on message.author_id = u.user_id
+		where message.flagged = 0 and u.user_id = $1
 		order by message.pub_date desc
-		limit ?`, userID, no)
+		limit $2`, userID, no)
 	if err != nil {
 		return Response(http.StatusInternalServerError, ErrorResponse{
 			Status:   http.StatusInternalServerError,
@@ -459,7 +465,7 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 	}
 
 	if _, err := db.Exec(
-		"insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)",
+		"insert into message (author_id, text, pub_date, flagged) values ($1, $2, $3, 0)",
 		userID,
 		content,
 		time.Now().Unix(),
@@ -532,7 +538,7 @@ func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterR
 	}
 
 	if _, err := db.Exec(
-		"insert into user (username, email, pw_hash) values (?, ?, ?)",
+		`insert into "user" (username, email, pw_hash) values ($1, $2, $3)`,
 		username,
 		email,
 		string(passwordHash),

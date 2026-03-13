@@ -3,7 +3,7 @@ FROM golang:1.25 AS builder
 WORKDIR /app
 
 COPY src/ ./src/
-COPY go.mod go.sum schema.sql ./
+COPY go.mod go.sum ./
 COPY templates/ ./templates/
 COPY static/ ./static/
 
@@ -21,7 +21,6 @@ RUN mkdir -p /db
 COPY --from=builder /out/main .
 COPY --from=builder /app/templates ./templates/
 COPY --from=builder /app/static ./static/
-COPY --from=builder /app/schema.sql .
 
 EXPOSE 8080
 
