@@ -141,3 +141,24 @@ func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, er
 		}).
 		Stdout(ctx)
 }
+
+func (m *Ddn) Quality(ctx context.Context, src *dagger.Directory) error {
+	// Create error group
+	eg, gctx := errgroup.WithContext(ctx)
+
+	// Run linter
+	eg.Go(func() error {
+		_, err := m.Lint(gctx, src)
+		return err
+	})
+
+	// Run spellcheck
+	eg.Go(func() error {
+		_, err := m.Spellcheck(gctx, src)
+		return err
+	})
+
+	// Wait for all checks to complete
+	// If any checks fail, the error will be returned
+	return eg.Wait()
+}
