@@ -517,14 +517,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err_str := errString(loginErr)
+	errStr := errString(loginErr)
 
 	loginData := LoginData{
 		BaseTemplateData: BaseTemplateData{
 			User:    user,
 			Flashes: flashes,
 		},
-		Error: err_str,
+		Error: errStr,
 		Form: struct {
 			Username string
 		}{},
