@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"minitwit/src/db"
 	"minitwit/src/model"
@@ -13,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"html/template"
 	"time"
 
 	openapi "minitwit/src/apimodels/go"
@@ -291,7 +291,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	// Get username from path
 	username := mux.Vars(r)["username"]
 
-	// Check existance of user in database
+	// Check existence of user in database
 	data, err := UserRepo.GetUserByUsername(username)
 	if err != nil {
 		log.Println(err)

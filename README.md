@@ -8,7 +8,7 @@ Currently the project is hosted as a github release as well as a dockerhub image
 
 ### Using docker image
 
-A prerequiste is that you must have docker installed on your system in some way (either docker desktop or just the engine components).
+A prerequisite is that you must have docker installed on your system in some way (either docker desktop or just the engine components).
 
 - Download/pull the image
 
