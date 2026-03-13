@@ -32,7 +32,10 @@ func (m *Ddn) BuildEnv(src *dagger.Directory) *dagger.Container {
 	return dag.Container().
 		From("golang:1.25").
 		WithDirectory("./src", src).
-		WithWorkdir("./src").WithExec([]string{"go", "mod", "tidy"})
+		WithWorkdir("./src").WithExec([]string{"go", "mod", "tidy"}).
+		WithExec([]string{
+			"go", "install", "github.com/client9/misspell/cmd/misspell@latest",
+		})
 }
 
 func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
@@ -128,4 +131,10 @@ func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory, username strin
 	return container.
 		WithRegistryAuth(registry, username, password).
 		Publish(ctx, imageRef)
+}
+
+func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, error) {
+	return m.BuildEnv(src).
+		WithExec([]string{"misspell", "-error", "."}).
+		Stdout(ctx)
 }
