@@ -1,3 +1,4 @@
+      #!/bin/bash
       sudo apt-get update -y
       sudo apt-get install -y ca-certificates curl gnupg lsb-release
       
@@ -38,14 +39,9 @@
 
       # Set image name
       DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
-      
-      # Check if db exists
-      if [ ! -f "/db/minitwit.db" ]; then
-        mkdir -p /db/
-      fi
 
       # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /db/:/db/ "$DOCKER_IMAGE"
+      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -e DATABASE_URL="postgres://minitwit:minitwitpassword@postgres:5432/minitwit?sslmode=disable" "$DOCKER_IMAGE" 
 
 
       echo "===================================="

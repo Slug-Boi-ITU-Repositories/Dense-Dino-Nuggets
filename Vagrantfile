@@ -41,9 +41,9 @@ Vagrant.configure("2") do |config|
 
   end
 
------------------------------
-Postgres Database Server
------------------------------
+#-----------------------------
+#Postgres Database Server
+#-----------------------------
 config.vm.define "postgres" do |db|
 db.vm.hostname = "postgres"
 
