@@ -517,7 +517,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err_str := loginErr.Error()
+	err_str := errString(loginErr)
 
 	loginData := LoginData{
 		BaseTemplateData: BaseTemplateData{
