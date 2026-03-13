@@ -517,13 +517,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Figure out if we ever actually use the data error if not then just remove it all
-	var err_str string
-	if err != nil {
-		err_str = loginErr.Error()
-	} else {
-		err_str = ""
-	}
+	err_str := loginErr.Error()
 
 	loginData := LoginData{
 		BaseTemplateData: BaseTemplateData{
