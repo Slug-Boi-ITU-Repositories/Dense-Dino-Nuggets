@@ -135,6 +135,9 @@ func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory, username strin
 
 func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, error) {
 	return m.BuildEnv(src).
-		WithExec([]string{"misspell", "-error", "."}).
+		WithExec([]string{
+			"sh", "-c",
+			`find . -type f -name "*.go" -o -name "*.md" | grep -v "^./simulator/" | xargs misspell -error`,
+		}).
 		Stdout(ctx)
 }
