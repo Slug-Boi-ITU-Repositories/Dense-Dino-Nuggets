@@ -25,9 +25,26 @@ services:
     volumes:
       - ./db/:/db/
     ports:
-      - "8080:8080"
+      - target: 8080
+        published: 8081 
+        mode: ingress
     networks:
       - minitwit-network
+    deploy:
+      replicas: 3           
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+
 
 networks:
   minitwit-network:
