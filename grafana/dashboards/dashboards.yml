@@ -1,0 +1,10 @@
+apiVersion: 1
+
+providers:
+  - name: 'Minitwit requests'
+    type: file
+    disableDeletion: true
+    updateIntervalSeconds: 5
+    allowUiUpdates: false
+    options:
+      path: /etc/grafana/provisioning/dashboards
