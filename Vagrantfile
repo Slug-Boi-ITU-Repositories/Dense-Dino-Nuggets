@@ -30,6 +30,7 @@ Vagrant.configure("2") do |config|
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
+      provider.private_networking = true
     end
 
     # Local port forwarding (ignored by DO)
@@ -39,4 +40,45 @@ Vagrant.configure("2") do |config|
     server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} , path: "vagrant_shell/provision-app.sh"
 
   end
+
+-----------------------------
+Postgres Database Server
+-----------------------------
+config.vm.define "postgres" do |db|
+db.vm.hostname = "postgres"
+
+# UTM
+db.vm.provider :utm do |u, override|
+  override.vm.box = "utm/bookworm"
+  u.memory = 1024
+  u.cpus = 1
+end
+
+# VirtualBox
+db.vm.provider :virtualbox do |vb, override|
+  override.vm.box = "ubuntu/jammy64"
+  vb.memory = 1024
+  vb.cpus = 1
+end
+
+# DigitalOcean
+db.vm.provider :digital_ocean do |provider, override|
+  override.vm.box = "digital_ocean"
+  override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
+  provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
+  provider.ssh_key_name = ENV["SSH_KEY_NAME"]
+  override.ssh.private_key_path = '~/.ssh/devops_rsa'
+  provider.image = "ubuntu-22-04-x64"
+  provider.region = "fra1"
+  provider.size = "s-1vcpu-1gb"
+  provider.private_networking = true
+end
+
+db.vm.network "forwarded_port", guest: 5432, host: 5432
+
+db.vm.provision "shell",
+  path: "vagrant_shell/provision-postgres.sh"
+
+end
+
 end
