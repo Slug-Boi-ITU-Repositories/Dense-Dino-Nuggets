@@ -5,6 +5,7 @@ Vagrant.configure("2") do |config|
 
   config.vm.define "minitwit" do |server|
     server.vm.hostname = "minitwit"
+      server.vm.network "private_network", ip: "192.168.56.10"
 
     server.vm.provider :utm do |u, override|
       config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
@@ -46,7 +47,7 @@ Vagrant.configure("2") do |config|
 #-----------------------------
 config.vm.define "postgres" do |db|
 db.vm.hostname = "postgres"
-
+db.vm.network "private_network", ip: "192.168.56.11"
 # UTM
 db.vm.provider :utm do |u, override|
   override.vm.box = "utm/bookworm"
@@ -75,7 +76,6 @@ db.vm.provider :digital_ocean do |provider, override|
 end
 
 db.vm.network "forwarded_port", guest: 5432, host: 5432
-
 db.vm.provision "shell", path: "vagrant_shell/provision-postgres.sh"
 
 end
