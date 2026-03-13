@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"minitwit/src/db"
 	"minitwit/src/model"
@@ -13,18 +14,16 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"html/template"
 	"time"
 
 	openapi "minitwit/src/apimodels/go"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	_ "github.com/mattn/go-sqlite3"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -73,7 +72,6 @@ type TimelineData struct {
 	Endpoint    string
 }
 
-const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
@@ -830,15 +828,19 @@ func main() {
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)
-	// Check if database needs initialization
-	dbExists := true
-	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
-		dbExists = false
-		fmt.Println("Database does not exist. Will initialize after connection...")
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		panic("DATABASE_URL environment variable is not set!")
 	}
 
 	// Create global GORM connection
-	GormDB, err := db.Connect(DATABASE)
+	GormDB, err := db.Connect(dsn)
 	if err != nil {
 		log.Fatal("Failed to connect to database with GORM:", err)
 	}
@@ -846,8 +848,10 @@ func main() {
 	UserRepo = repository.NewUserRepository(GormDB)
 	MessageRepo = repository.NewMessageRepository(GormDB)
 	FollowerRepo = repository.NewFollowerRepository(GormDB)
-	// Seed database with test data if it doesn't exist
-	if !dbExists {
+	// Seed database with initial data if empty
+	var userCount int64
+	GormDB.Model(&model.User{}).Count(&userCount)
+	if userCount == 0 {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
