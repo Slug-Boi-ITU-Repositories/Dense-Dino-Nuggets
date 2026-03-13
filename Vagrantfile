@@ -35,66 +35,8 @@ Vagrant.configure("2") do |config|
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
-
     # Provisioning
-    server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} ,inline: <<-SHELL
-      sudo apt-get update -y
-      sudo apt-get install -y ca-certificates curl gnupg lsb-release
-      
-      # Uninstall conflicting packages
-      sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-      
-      # 3. Add Docker's official GPG key
-      sudo install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-      sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-      # 4. Set up the Docker repository
-      # This check was written by Gemini
-      # NOTE: For Debian Bookworm, we must use the repository for Bullseye as Docker doesn't have a Bookworm repo yet.
-      CODENAME=$(lsb_release -cs)
-      if [ "$CODENAME" = "bookworm" ]; then
-        CODENAME="bullseye"
-      fi
-      echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-        $CODENAME stable" | \
-        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-      # Update package list again (for some reason it won't work if we don't)
-      sudo apt-get update
-
-      # Docker engine
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-      # Stop and remove any existing container named minitwitimage
-      IMAGE_NAME="minitwitimage"
-      if [ "$(sudo docker ps -q -f name=$IMAGE_NAME)" ]; then
-          sudo docker stop $IMAGE_NAME
-      fi
-      if [ "$(sudo docker ps -aq -f status=exited -f name=$IMAGE_NAME)" ]; then
-          sudo docker rm $IMAGE_NAME
-      fi
-
-      # Set image name
-      DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
-      
-      # Check if db exists
-      if [ ! -f "/db/minitwit.db" ]; then
-        mkdir -p /db/
-      fi
-
-      # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /db/:/db/ "$DOCKER_IMAGE"
-
-
-      echo "===================================="
-      echo "Minitwit deployed from $DOCKER_IMAGE!"
-      echo "===================================="
-
-      IP=$(hostname -I | awk '{print $1}')
-      echo "Access at: http://$IP:8080"
-    SHELL
+    server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} , path: "vagrant_shell/provision-app.sh"
 
   end
 end
