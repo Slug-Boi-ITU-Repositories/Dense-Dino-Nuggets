@@ -65,9 +65,44 @@ SSH_KEY_NAME
 DOCKER_USERNAME
 ```
 
-And run with either utm virtualbox or digital_ocean provider:
+And run mintwit application with either utm virtualbox or digital_ocean provider:
 
-`vagrant up --provider=<provider>`
+`vagrant up minitwit --provider=<provider>`
+
+And run monitoring system with either utm, libvert, or digital_ocean provider:
+
+`vagrant up monitoring --provider=<povider>`
+
+## Running monitoring system
+The monitoring system uses Prometheus and Grafana which is configured throught the files in `./prometheus` and `./grafana`. The system can be started with the docker compose file in the repository.
+
+### Running the monitoring for local testing and development
+Build and image of the minitwit application using the Dockerfile in the repo with the tag `minitwit-monitoring`
+```bash
+$ docker build -t minitwit-monitoring .
+```
+
+Run the docker compose file with the local profile
+```bash
+$ docker compose --profile local up -d
+```
+
+Then the minitwit application is available on `localhost:8080`, Prometheus at `localhost:9090`, and Grafana at `localhost:3000`.
+
+### Running the monitoring for production
+This setup assumes that the minitwit system is allready running and accessable. 
+Edit the `./prometheus/prometheus_prod.yml` file so that the target matches the running minitwit.
+
+The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists localy from the current directory. Make sure to create these first and set the permissions like this:
+```bash
+$ sudo chown -R 65534:65534 ./prometheus_data
+$ sudo chown -R 472:472 ./grafana_data
+```
+
+Then the production setup can be started with
+```bash
+$ docker compose --profile prod up -d
+```
 
 ## Running dagger workflows
 
