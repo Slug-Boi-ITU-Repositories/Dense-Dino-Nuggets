@@ -53,6 +53,7 @@ services:
     environment:
       - PROMETHEUS_ADDRESS=prometheus-prod
     volumes:
+      - ./grafana_data:/var/lib/grafana/
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
     ports:
