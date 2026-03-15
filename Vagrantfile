@@ -170,7 +170,9 @@ Vagrant.configure("2") do |config|
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       
       mkdir -p ./prometheus_data
-      sudo chown -R 65534:65534 ./prometheus_data
+      sudo chown -R 65534:65534 ./prometheus_data # Set correct user perms for prometheus
+      mkdir -p ./grafana_data
+      sudo chown -R 472:472 ./grafana_data # Set correct user perms for grafana
       sudo docker compose --profile prod down
       sudo docker compose --profile prod up -d
       
