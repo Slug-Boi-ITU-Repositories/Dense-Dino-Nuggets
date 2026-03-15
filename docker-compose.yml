@@ -1,8 +1,9 @@
 services:
-  prometheus:
+  prometheus-local:
     image: prom/prometheus:latest
+    profiles: [local]
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus_local.yml:/etc/prometheus/prometheus.yml
     ports:
       - '9090:9090'
     networks:
@@ -10,8 +11,11 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
 
-  grafana:
+  grafana-local:
     image: grafana/grafana
+    profiles: [local]
+    environment:
+      - PROMETHEUS_ADDRESS=prometheus-local
     volumes:
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
@@ -22,6 +26,7 @@ services:
 
   minitwit:
     image: minitwit-monitoring:latest
+    profiles: [local]
     volumes:
       - ./db/:/db/
     ports:
@@ -29,7 +34,37 @@ services:
     networks:
       - minitwit-network
 
+  prometheus-prod:
+    image: prom/prometheus:latest
+    profiles: [prod]
+    volumes:
+      - ./prometheus_data/:/prometheus/data/ 
+      - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+  
+  grafana-prod:
+    image: grafana/grafana
+    profiles: [prod]
+    environment:
+      - PROMETHEUS_ADDRESS=prometheus-prod
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+
 networks:
   minitwit-network:
     external: false
     name: minitwit-network
+
+  monitoring:
+    external: false
+    name: monitoring
