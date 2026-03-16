@@ -93,7 +93,7 @@ Then the minitwit application is available on `localhost:8080`, Prometheus at `l
 This setup assumes that the minitwit system is already running and accessable. 
 Edit the `./prometheus/prometheus_prod.yml` file so that the target matches the running minitwit.
 
-The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists localy from the current directory. Make sure to create these first and set the permissions like this:
+The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists locally in the current directory. Make sure to create these first and set the permissions like this:
 ```bash
 $ sudo chown -R 65534:65534 ./prometheus_data
 $ sudo chown -R 472:472 ./grafana_data
