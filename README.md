@@ -90,7 +90,7 @@ $ docker compose --profile local up -d
 Then the minitwit application is available on `localhost:8080`, Prometheus at `localhost:9090`, and Grafana at `localhost:3000`.
 
 ### Running the monitoring for production
-This setup assumes that the minitwit system is allready running and accessable. 
+This setup assumes that the minitwit system is already running and accessable. 
 Edit the `./prometheus/prometheus_prod.yml` file so that the target matches the running minitwit.
 
 The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists localy from the current directory. Make sure to create these first and set the permissions like this:
