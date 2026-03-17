@@ -820,7 +820,7 @@ func main() {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	MinitwitAPIService := openapi.NewMinitwitAPIService(reg)
+	MinitwitAPIService := openapi.NewMinitwitAPIService()
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)

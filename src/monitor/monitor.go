@@ -6,28 +6,22 @@ import (
 )
 
 type Metrics struct {
-	RegisterCounter prometheus.Counter
-	TweetCounter prometheus.Counter
-	FollowCounter prometheus.Counter
+	RequestCounter *prometheus.CounterVec
+	RequestDuration *prometheus.HistogramVec
 }
 
 func NewMetrics(reg prometheus.Registerer) *Metrics {
 	m := &Metrics{
-		RegisterCounter: promauto.With(reg).NewCounter(
+		RequestCounter: promauto.With(reg).NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "register_request_count",
-				Help: "Number of requests to register endpoint",
-			}),
-		TweetCounter: promauto.With(reg).NewCounter(
-			prometheus.CounterOpts{
-				Name: "tweet_request_count",
-				Help: "Number of requests to tweet endpoint",
-			}),
-		FollowCounter: promauto.With(reg).NewCounter(
-			prometheus.CounterOpts{
-				Name: "follow_request_count",
-				Help: "Number of requests to follow endpoint. (include both follow and unfollow)",
-			}),
+				Name: "requests_count",
+				Help: "Number of requests made to Minitwit",
+			}, []string{"register", "tweet", "follow"}),
+		RequestDuration: promauto.With(reg).NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name: "request_duration",
+				Help: "Duration of processing time for requests to Minitwit in seconds",
+			}, []string{"path", "status"}),
 	}
 	return m
 }
