@@ -77,7 +77,7 @@ And run monitoring system with either utm, libvert, or digital_ocean provider:
 The monitoring system uses Prometheus and Grafana which is configured throught the files in `./prometheus` and `./grafana`. The system can be started with the docker compose file in the repository.
 
 ### Running the monitoring for local testing and development
-Build and image of the minitwit application using the Dockerfile in the repo with the tag `minitwit-monitoring`
+Build an image of the minitwit application using the Dockerfile in the repo with the tag `minitwit-monitoring`
 ```bash
 $ docker build -t minitwit-monitoring .
 ```
