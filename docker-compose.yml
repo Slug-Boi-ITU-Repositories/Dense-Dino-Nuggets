@@ -24,17 +24,6 @@ services:
           cpus: '${POSTGRES_CPU_LIMIT:-0.5}'
           memory: ${POSTGRES_MEM_LIMIT:-512M}
 
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - '9090:9090'
-    networks:
-      - minitwit-network
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-
 minitwit:
     image: minitwit-monitoring:latest
     ports:
