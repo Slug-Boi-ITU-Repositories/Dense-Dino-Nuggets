@@ -56,7 +56,8 @@ STACK_NAME="minitwit"
 
 sudo apt-get update -y
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
+
 
 # Only add GPG key and repository if not already present
 if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
@@ -154,6 +155,23 @@ export POSTGRES_MEM_LIMIT="300M"
 export APP_REPLICAS="2"
 export APP_CPU_LIMIT="0.2"
 export APP_MEM_LIMIT="256M"
+
+cat > /tmp/pgloader.cmd <<EOF
+LOAD DATABASE FROM sqlite:///db/minitwit.db
+INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
+
+WITH include drop, create tables, create indexes, reset sequences,
+     disable triggers, batch rows = 10000, batch concurrency = 1
+
+CAST type string to text drop typemod,
+     type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+     type date to date drop default drop not null using zero-dates-to-null,
+     type boolean to boolean using tinyint-to-boolean;
+
+EOF
+
+# Run pgloader with the command file
+pgloader /tmp/pgloader.cmd
 
 # Create a processed compose file with variables substituted
 envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
