@@ -71,7 +71,7 @@ And run mintwit application with either utm virtualbox or digital_ocean provider
 
 And run monitoring system with either utm, libvert, or digital_ocean provider:
 
-`vagrant up monitoring --provider=<povider>`
+`vagrant up monitoring --provider=<provider>`
 
 ## Running monitoring system
 The monitoring system uses Prometheus and Grafana which is configured through the files in `./prometheus` and `./grafana`. The system can be started with the docker compose file in the repository.
