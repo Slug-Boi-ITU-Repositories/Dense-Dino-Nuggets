@@ -20,11 +20,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '${POSTGRES_CPU_LIMIT:-0.5}'
-          memory: ${POSTGRES_MEM_LIMIT:-512M}
+          cpus: '${POSTGRES_CPU_LIMIT:-0.2}'
+          memory: ${POSTGRES_MEM_LIMIT:-300M}
 
   minitwit:
-    image: minitwit-monitoring:latest
+    image: minitwitimage:latest
     ports:
       - target: 8080
         published: 8080
@@ -38,7 +38,7 @@ services:
       - postgres
     deploy:
       mode: replicated
-      replicas: ${APP_REPLICAS:-3}
+      replicas: ${APP_REPLICAS:-2}
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -53,11 +53,11 @@ services:
         delay: 5s
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
+          cpus: '0.2'
           memory: 256M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
 
 volumes:
   postgres_data:

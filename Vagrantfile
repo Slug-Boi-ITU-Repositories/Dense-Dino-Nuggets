@@ -3,8 +3,8 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "minitwit2" do |server|
-    server.vm.hostname = "minitwit"
+  config.vm.define "minitwit3" do |server|
+    server.vm.hostname = "minitwit3"
 
     server.vm.provider :utm do |u, override|
       config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
@@ -19,14 +19,15 @@ Vagrant.configure("2") do |config|
       vb.cpus = 2
     end
 
-
     # DigitalOcean (Cloud)
     server.vm.provider :digital_ocean do |provider, override|
       override.vm.box = "digital_ocean"
       override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
       provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
+      override.nfs.functional = false
+      override.vm.allowed_synced_folder_types = :rsync
+      override.ssh.private_key_path = '~/.ssh/testing_do'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
@@ -34,9 +35,9 @@ Vagrant.configure("2") do |config|
 
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
-    server.vm.provision "file", 
-      source: "./docker-compose.yml", 
-      destination: "/home/vagrant/docker-compose.yml"
+    # server.vm.provision "file", 
+    #   source: ".", 
+    #   destination: "."
 
     # Provisioning
     server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} ,inline: <<-SHELL
@@ -51,30 +52,41 @@ COMPOSE_FILE="docker-compose.yml"
 STACK_NAME="minitwit"
 
 # Docker installation
-sudo apt-get remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc 2>/dev/null || true
+# sudo apt-get remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc 2>/dev/null || true
 
 sudo apt-get update -y
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
-
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-CODENAME=$(lsb_release -cs)
-if [ "$CODENAME" = "bookworm" ]; then
-  CODENAME="bullseye"
-fi
-
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-  $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-sudo apt-get update
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# Only add GPG key and repository if not already present
+if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
+  echo "Setting up Docker's GPG key and repository (first time only)..."
+  
+  # Create keyrings directory
+  sudo install -m 0755 -d /etc/apt/keyrings
+  
+  # Add Docker's GPG key
+  curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
+  sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+  # Add Docker repository
+  CODENAME=$(lsb_release -cs)
+  if [ "$CODENAME" = "bookworm" ]; then
+    CODENAME="bullseye"
+  fi
+
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+    $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  
+  echo "✓ Docker repository configured"
+else
+  echo "✓ Docker GPG key already exists, skipping repository setup"
+fi
 
 # CRITICAL FIX: Ensure swarm is initialized and node is manager
 echo "Checking Docker Swarm status..."
-if ! sudo docker info | grep -q "Swarm: active"; then
+if ! sudo docker info | grep "Swarm: active"; then
   echo "Swarm not active. Initializing..."
   # Get the main IP address (not localhost)
   SWARM_IP=$(hostname -I | awk '{print $1}')
@@ -98,6 +110,7 @@ sudo docker node ls || {
   sudo docker swarm init --advertise-addr $(hostname -I | awk '{print $1}')
 }
 # Copy compose file
+mkdir -p /home/vagrant
 cp /vagrant/$COMPOSE_FILE /home/vagrant/
 
 # Prepare the volume for PostgreSQL
@@ -136,11 +149,11 @@ export POSTGRES_DB="minitwit"
 export POSTGRES_HOST="postgres"
 export POSTGRES_PORT="5432"
 export DB_SSL_MODE="disable"
-export POSTGRES_CPU_LIMIT="0.5"
-export POSTGRES_MEM_LIMIT="512M"
-export APP_REPLICAS="3"
-export APP_CPU_LIMIT="0.5"
-export APP_MEM_LIMIT="512M"
+export POSTGRES_CPU_LIMIT="0.2"
+export POSTGRES_MEM_LIMIT="300M"
+export APP_REPLICAS="2"
+export APP_CPU_LIMIT="0.2"
+export APP_MEM_LIMIT="256M"
 
 # Create a processed compose file with variables substituted
 envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
@@ -159,6 +172,7 @@ if sudo docker stack ls | grep -q "$STACK_NAME"; then
   # Pull the latest image
   echo "Pulling latest image: $DOCKER_IMAGE"
   sudo docker pull $DOCKER_IMAGE
+  
   
   # Update the service with rolling update
   echo "Starting rolling update of minitwit service..."
@@ -184,8 +198,7 @@ else
   
   # Pull images
   echo "Pulling latest images..."
-  # sudo docker pull $DOCKER_IMAGE
-  sudo docker build /vagrant -t minitwit-monitoring:latest
+  sudo docker pull $DOCKER_IMAGE
   sudo docker pull postgres:15-alpine
   
   # Deploy the stack using the processed compose file
