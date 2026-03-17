@@ -1,11 +1,10 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ${CONTAINER_NAME_PREFIX:-minitwit}-postgres
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-minitwit_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-minitwit_password}
-      POSTGRES_DB: ${POSTGRES_DB:-minitwit_db}
+      POSTGRES_USER: ${POSTGRES_USER:-philip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin}
+      POSTGRES_DB: ${POSTGRES_DB:-minitwit}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -24,7 +23,7 @@ services:
           cpus: '${POSTGRES_CPU_LIMIT:-0.5}'
           memory: ${POSTGRES_MEM_LIMIT:-512M}
 
-minitwit:
+  minitwit:
     image: minitwit-monitoring:latest
     ports:
       - target: 8080
@@ -59,8 +58,13 @@ minitwit:
         reservations:
           cpus: '0.25'
           memory: 256M
+
+volumes:
+  postgres_data:
+    driver: local
       
 networks:
   minitwit-network:
-    external: false
+    driver: overlay
+    attachable: true
     name: minitwit-network

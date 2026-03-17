@@ -3,7 +3,7 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "minitwit" do |server|
+  config.vm.define "minitwit2" do |server|
     server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
@@ -34,66 +34,213 @@ Vagrant.configure("2") do |config|
 
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
-
+    server.vm.provision "file", 
+      source: "./docker-compose.yml", 
+      destination: "/home/vagrant/docker-compose.yml"
 
     # Provisioning
     server.vm.provision "shell",env: {"USERNAME" => ENV['DOCKER_USERNAME']} ,inline: <<-SHELL
-      sudo apt-get update -y
-      sudo apt-get install -y ca-certificates curl gnupg lsb-release
-      
-      # Uninstall conflicting packages
-      sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-      
-      # 3. Add Docker's official GPG key
-      sudo install -m 0755 -d /etc/apt/keyrings
-      curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-      sudo chmod a+r /etc/apt/keyrings/docker.gpg
+#!/bin/bash
+set -euo pipefail
 
-      # 4. Set up the Docker repository
-      # This check was written by Gemini
-      # NOTE: For Debian Bookworm, we must use the repository for Bullseye as Docker doesn't have a Bookworm repo yet.
-      CODENAME=$(lsb_release -cs)
-      if [ "$CODENAME" = "bookworm" ]; then
-        CODENAME="bullseye"
-      fi
-      echo \
-        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-        $CODENAME stable" | \
-        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+VOLUME_MOUNT="/mnt/pgdata"
+VOLUME_DEVICE="/dev/sda"
+IMAGE_NAME="minitwitimage"
+DOCKER_IMAGE="$USERNAME/$IMAGE_NAME"
+COMPOSE_FILE="docker-compose.yml"
+STACK_NAME="minitwit"
 
-      # Update package list again (for some reason it won't work if we don't)
-      sudo apt-get update
+# Docker installation
+sudo apt-get remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc 2>/dev/null || true
 
-      # Docker engine
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo apt-get update -y
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
 
-      # Stop and remove any existing container named minitwitimage
-      IMAGE_NAME="minitwitimage"
-      if [ "$(sudo docker ps -q -f name=$IMAGE_NAME)" ]; then
-          sudo docker stop $IMAGE_NAME
-      fi
-      if [ "$(sudo docker ps -aq -f status=exited -f name=$IMAGE_NAME)" ]; then
-          sudo docker rm $IMAGE_NAME
-      fi
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-      # Set image name
-      DOCKER_IMAGE=$USERNAME/$IMAGE_NAME
-      
-      # Check if db exists
-      if [ ! -f "/db/minitwit.db" ]; then
-        mkdir -p /db/
-      fi
+CODENAME=$(lsb_release -cs)
+if [ "$CODENAME" = "bookworm" ]; then
+  CODENAME="bullseye"
+fi
 
-      # Pull the latest image and run the container
-      sudo docker run -d --pull always --name $IMAGE_NAME -p 8080:8080 -v /db/:/db/ "$DOCKER_IMAGE"
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+  $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-      echo "===================================="
-      echo "Minitwit deployed from $DOCKER_IMAGE!"
-      echo "===================================="
+# CRITICAL FIX: Ensure swarm is initialized and node is manager
+echo "Checking Docker Swarm status..."
+if ! sudo docker info | grep -q "Swarm: active"; then
+  echo "Swarm not active. Initializing..."
+  # Get the main IP address (not localhost)
+  SWARM_IP=$(hostname -I | awk '{print $1}')
+  sudo docker swarm init --advertise-addr $SWARM_IP
+else
+  echo "Swarm is active"
+  # Check if this node is a manager
+  if ! sudo docker node ls 2>/dev/null | grep -q "Leader"; then
+    echo "This node is not a manager. Attempting to make it a manager..."
+    # If it's a worker, we need to promote it (requires manager access)
+    # This might fail if we don't have manager access, so we'll reinit if needed
+    sudo docker swarm leave --force
+    sudo docker swarm init --advertise-addr $(hostname -I | awk '{print $1}')
+  fi
+fi
 
-      IP=$(hostname -I | awk '{print $1}')
-      echo "Access at: http://$IP:8080"
+# Verify swarm status
+sudo docker node ls || {
+  echo "ERROR: Still not able to access swarm. Reinitializing..."
+  sudo docker swarm leave --force 2>/dev/null || true
+  sudo docker swarm init --advertise-addr $(hostname -I | awk '{print $1}')
+}
+# Copy compose file
+cp /vagrant/$COMPOSE_FILE /home/vagrant/
+
+# Prepare the volume for PostgreSQL
+if [ -b "$VOLUME_DEVICE" ]; then
+  echo "Setting up volume for PostgreSQL..."
+  sudo mkdir -p "$VOLUME_MOUNT"
+  if ! mountpoint -q "$VOLUME_MOUNT"; then
+    sudo mount "$VOLUME_DEVICE" "$VOLUME_MOUNT"
+  fi
+  if ! grep -q "$VOLUME_DEVICE" /etc/fstab; then
+    echo "$VOLUME_DEVICE $VOLUME_MOUNT ext4 defaults,nofail 0 2" | sudo tee -a /etc/fstab
+  fi
+  
+  # Set proper permissions for Docker volume
+  sudo chown -R 999:999 "$VOLUME_MOUNT"  # Postgres runs as uid 999 in container
+  
+  # Create a docker volume that uses this mount
+  sudo docker volume create \
+    --driver local \
+    --opt type=none \
+    --opt device=$VOLUME_MOUNT \
+    --opt o=bind \
+    postgres_data || true
+else
+  echo "WARNING: Volume device $VOLUME_DEVICE not found. Using local volume."
+fi
+
+# Create a modified compose file with environment variables substituted
+echo "Creating compose file with environment variables..."
+
+# Export all variables so envsubst can use them
+export CONTAINER_NAME_PREFIX="prod"
+export POSTGRES_USER="philip"
+export POSTGRES_PASSWORD="admin"
+export POSTGRES_DB="minitwit"
+export POSTGRES_HOST="postgres"
+export POSTGRES_PORT="5432"
+export DB_SSL_MODE="disable"
+export POSTGRES_CPU_LIMIT="0.5"
+export POSTGRES_MEM_LIMIT="512M"
+export APP_REPLICAS="3"
+export APP_CPU_LIMIT="0.5"
+export APP_MEM_LIMIT="512M"
+
+# Create a processed compose file with variables substituted
+envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
+
+echo "Using configuration:"
+echo "  POSTGRES_USER: $POSTGRES_USER"
+echo "  POSTGRES_DB: $POSTGRES_DB"
+echo "  POSTGRES_HOST: $POSTGRES_HOST"
+echo "  APP_REPLICAS: $APP_REPLICAS"
+
+# Check if stack exists
+cd /home/vagrant
+if sudo docker stack ls | grep -q "$STACK_NAME"; then
+  echo "Stack $STACK_NAME already exists. Performing rolling update..."
+  
+  # Pull the latest image
+  echo "Pulling latest image: $DOCKER_IMAGE"
+  sudo docker pull $DOCKER_IMAGE
+  
+  # Update the service with rolling update
+  echo "Starting rolling update of minitwit service..."
+  sudo docker service update \
+    --image $DOCKER_IMAGE \
+    --update-parallelism 1 \
+    --update-delay 10s \
+    --update-order start-first \
+    --update-failure-action rollback \
+    ${STACK_NAME}_minitwit
+  
+  # Monitor the update
+  echo "Monitoring rolling update..."
+  sleep 5
+  sudo docker service ps ${STACK_NAME}_minitwit
+  
+  echo "Rolling update initiated! You can monitor with:"
+  echo "  docker service ps ${STACK_NAME}_minitwit"
+  echo "  docker service logs ${STACK_NAME}_minitwit -f"
+  
+else
+  echo "Stack $STACK_NAME not found. Deploying for first time..."
+  
+  # Pull images
+  echo "Pulling latest images..."
+  # sudo docker pull $DOCKER_IMAGE
+  sudo docker build /vagrant -t minitwit-monitoring:latest
+  sudo docker pull postgres:15-alpine
+  
+  # Deploy the stack using the processed compose file
+  echo "Deploying Minitwit stack to Swarm..."
+  sudo docker stack deploy -c /home/vagrant/docker-compose.processed.yml $STACK_NAME
+  
+  # Wait for services to start
+  echo "Waiting for services to start..."
+  sleep 15
+  
+  # Show PostgreSQL logs to verify it started correctly
+  echo "PostgreSQL container logs:"
+  sudo docker service logs ${STACK_NAME}_postgres --tail 20
+fi
+
+# Check final status
+echo "Stack services:"
+sudo docker stack services $STACK_NAME
+
+echo "Stack ps:"
+sudo docker stack ps $STACK_NAME
+
+# Get the IP for accessing the services
+IP=$(hostname -I | awk '{print $1}')
+
+echo "===================================="
+echo "Minitwit deployed as Docker Swarm stack!"
+echo "===================================="
+echo "Minitwit app: http://$IP:8080 (available on all swarm nodes)"
+echo "PostgreSQL is running as a container in the stack"
+echo ""
+echo "Stack name: $STACK_NAME"
+echo "Services:"
+sudo docker stack services $STACK_NAME --format "table {{.Name}}\t{{.Replicas}}\t{{.Ports}}"
+echo ""
+echo "Rolling update config (from compose file):"
+echo "  - Parallelism: 1 container at a time"
+echo "  - Delay: 10s between updates"
+echo "  - Order: start-first (new starts before old stops)"
+echo "  - Failure action: rollback"
+echo ""
+echo "Database connection details:"
+echo "  Host: postgres (internal to stack)"
+echo "  User: philip"
+echo "  Password: admin"
+echo "  Database: minitwit"
+echo ""
+echo "To access PostgreSQL from host:"
+echo "  docker container exec -it \$(docker ps -q -f name=postgres) psql -U philip -d minitwit"
+echo ""
+echo "Swarm commands:"
+echo "  docker stack services $STACK_NAME           # List services"
+echo "  docker stack ps $STACK_NAME                 # List tasks"
+echo "  docker service logs ${STACK_NAME}_minitwit  # View app logs"
+echo "  docker service logs ${STACK_NAME}_postgres  # View postgres logs"
     SHELL
 
   end
