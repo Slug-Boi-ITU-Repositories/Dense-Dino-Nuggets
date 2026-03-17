@@ -4,6 +4,33 @@ This is a fork of a student project of a small twitter like application (this is
 
 ## Installation
 
+### Environment setup
+
+The program requires some environment variables to be set. The minimum for running the application locally is this
+```bash
+DATABASE_URL="<psql-dsn-string>"
+```
+
+Full env setup for docker-compose file. Can also be deployed as a stack on a swarm
+
+```bash
+# Database Configuration
+POSTGRES_USER=minitwit_user
+POSTGRES_PASSWORD=minitwit_password
+POSTGRES_DB=minitwit_db
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+DB_SSL_MODE=disable
+
+# Container Names
+CONTAINER_NAME_PREFIX=minitwit
+
+# Resource Limits
+POSTGRES_CPU_LIMIT=0.5
+POSTGRES_MEM_LIMIT=512M
+APP_REPLICAS=3
+```
+
 Currently the project is hosted as a github release as well as a dockerhub image.
 
 ### Using docker image
