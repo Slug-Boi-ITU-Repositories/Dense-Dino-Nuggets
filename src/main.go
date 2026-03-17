@@ -20,10 +20,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -823,14 +823,19 @@ func main() {
 
 	router := openapi.NewRouter(MinitwitAPIController)
 
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
+	// Check if DATABASE_URL is set in environment first
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		panic("DATABASE_URL environment variable is not set!")
+		// Try loading from .env file
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file: ", err)
+		}
+    
+		dsn = os.Getenv("DATABASE_URL")
+		if dsn == "" {
+			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
+		}
 	}
 
 	// Create global GORM connection
