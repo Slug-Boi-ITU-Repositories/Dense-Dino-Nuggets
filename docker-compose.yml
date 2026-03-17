@@ -22,6 +22,9 @@ services:
 
   minitwit:
     image: minitwit-monitoring:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - ./db/:/db/
     ports:

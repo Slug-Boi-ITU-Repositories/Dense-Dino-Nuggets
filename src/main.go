@@ -17,6 +17,7 @@ import (
 	"time"
 
 	openapi "minitwit/src/apimodels/go"
+	"minitwit/src/monitor"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -824,6 +825,8 @@ func main() {
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)
+	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
+
 	// Check if database needs initialization
 	dbExists := true
 	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
@@ -857,6 +860,7 @@ func main() {
 	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
 	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 

@@ -16,12 +16,12 @@ func NewMetrics(reg prometheus.Registerer) *Metrics {
 			prometheus.CounterOpts{
 				Name: "requests_count",
 				Help: "Number of requests made to Minitwit",
-			}, []string{"register", "tweet", "follow"}),
+			}, []string{"path", "method"}),
 		RequestDuration: promauto.With(reg).NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name: "request_duration",
 				Help: "Duration of processing time for requests to Minitwit in seconds",
-			}, []string{"path", "status"}),
+			}, []string{"path", "method"}),
 	}
 	return m
 }
