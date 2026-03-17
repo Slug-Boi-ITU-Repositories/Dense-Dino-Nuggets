@@ -69,15 +69,34 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 	return outputs
 }
 
+func (m *Ddn) PostgresService() *dagger.Service {
+    return dag.Container().
+        From("postgres:15-alpine").
+        WithEnvVariable("POSTGRES_USER", "testuser").
+        WithEnvVariable("POSTGRES_PASSWORD", "testpass").
+        WithEnvVariable("POSTGRES_DB", "testdb").
+        WithExposedPort(5432).
+        AsService()
+}
+
 func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
+	postgres := m.PostgresService()
+
+	dsn := "postgresql://testuser:testpass@postgres:5432/testdb?sslmode=disable"
+
 	return src.DockerBuild().
+		WithServiceBinding("postgres", postgres).
+        WithEnvVariable("DATABASE_URL", dsn).
 		AsService(dagger.ContainerAsServiceOpts{Args: []string{"./main"}})
 }
 
 func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
+	server := m.ServerService(src)
+
+
 	return m.BuildEnv(src).
 		WithWorkdir("./src").
-		WithServiceBinding("localhost", m.ServerService(src)).
+		WithServiceBinding("localhost", server).
 		WithExec([]string{"go", "test", "./..."}).
 		Stdout(ctx)
 }
