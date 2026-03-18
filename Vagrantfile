@@ -109,7 +109,6 @@ Vagrant.configure("2") do |config|
         echo "✓ Docker GPG key already exists, skipping repository setup"
       fi
 
-      # CRITICAL FIX: Ensure swarm is initialized and node is manager
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
         echo "Swarm not active. Initializing..."
