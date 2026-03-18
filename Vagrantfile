@@ -35,6 +35,7 @@ Vagrant.configure("2") do |config|
 
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
+    server.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
 
     # Provisioning
     server.vm.provision "shell", env: {
