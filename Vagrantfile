@@ -80,8 +80,6 @@ Vagrant.configure("2") do |config|
 
       sudo apt-get update -y
       sudo apt-get install -y ca-certificates curl gnupg lsb-release
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
-
 
       # Only add GPG key and repository if not already present
       if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
@@ -103,11 +101,15 @@ Vagrant.configure("2") do |config|
         echo \
           "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
           $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+        sudo apt-get update -y
         
-        echo "✓ Docker repository configured"
+        echo "Docker repository configured"
       else
-        echo "✓ Docker GPG key already exists, skipping repository setup"
+        echo "Docker GPG key already exists, skipping repository setup"
       fi
+
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
 
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
@@ -149,7 +151,7 @@ Vagrant.configure("2") do |config|
         fi
         
         # Set proper permissions for Docker volume
-        sudo chown -R 999:999 "$VOLUME_MOUNT"  # Postgres runs as uid 999 in container
+        sudo chown -R 999:999 "$VOLUME_MOUNT" 
         
         # Create a docker volume that uses this mount
         sudo docker volume create \
@@ -162,23 +164,6 @@ Vagrant.configure("2") do |config|
         echo "WARNING: Volume device $VOLUME_DEVICE not found. Using local volume."
       fi
 
-      cat > /tmp/pgloader.cmd <<EOF
-      LOAD DATABASE FROM sqlite:///db/minitwit.db
-      INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
-
-      WITH include drop, create tables, create indexes, reset sequences,
-          disable triggers, batch rows = 10000, batch concurrency = 1
-
-      CAST type string to text drop typemod,
-          type datetime to timestamptz drop default drop not null using zero-dates-to-null,
-          type date to date drop default drop not null using zero-dates-to-null,
-          type boolean to boolean using tinyint-to-boolean;
-
-      EOF
-
-      # Run pgloader with the command file
-      pgloader /tmp/pgloader.cmd
-
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
 
@@ -189,13 +174,14 @@ Vagrant.configure("2") do |config|
         
         # Pull the latest image
         echo "Pulling latest image: $DOCKER_IMAGE"
-        sudo docker pull $DOCKER_IMAGE
+        sudo docker pull $DOCKER_IMAGE 
         
         
         # Update the service with rolling update
         echo "Starting rolling update of minitwit service..."
         sudo docker service update \
           --image $DOCKER_IMAGE \
+          --force \
           --update-parallelism 1 \
           --update-delay 10s \
           --update-order start-first \
@@ -231,6 +217,22 @@ Vagrant.configure("2") do |config|
         echo "PostgreSQL container logs:"
         sudo docker service logs ${STACK_NAME}_postgres --tail 20
       fi
+
+      cat > /tmp/pgloader.cmd <<-EOF
+      LOAD DATABASE FROM sqlite:///db/minitwit.db
+      INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
+
+      WITH include drop, create tables, create indexes, reset sequences,
+          disable triggers, batch rows = 10000, batch concurrency = 1
+
+      CAST type string to text drop typemod,
+          type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+          type date to date drop default drop not null using zero-dates-to-null,
+          type boolean to boolean using tinyint-to-boolean;
+EOF
+
+      # Run pgloader with the command file
+      pgloader /tmp/pgloader.cmd
 
       # Check final status
       echo "Stack services:"
