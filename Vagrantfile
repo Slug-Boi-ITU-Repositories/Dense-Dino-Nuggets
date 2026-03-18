@@ -182,12 +182,6 @@ Vagrant.configure("2") do |config|
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
 
-      echo "Using configuration:"
-      echo "  POSTGRES_USER: $POSTGRES_USER"
-      echo "  POSTGRES_DB: $POSTGRES_DB"
-      echo "  POSTGRES_HOST: $POSTGRES_HOST"
-      echo "  APP_REPLICAS: $APP_REPLICAS"
-
       # Check if stack exists
       cd /home/vagrant
       if sudo docker stack ls | grep -q "$STACK_NAME"; then
@@ -263,15 +257,6 @@ Vagrant.configure("2") do |config|
       echo "  - Delay: 10s between updates"
       echo "  - Order: start-first (new starts before old stops)"
       echo "  - Failure action: rollback"
-      echo ""
-      echo "Database connection details:"
-      echo "  Host: postgres (internal to stack)"
-      echo "  User: philip"
-      echo "  Password: admin"
-      echo "  Database: minitwit"
-      echo ""
-      echo "To access PostgreSQL from host:"
-      echo "  docker container exec -it \$(docker ps -q -f name=postgres) psql -U philip -d minitwit"
       echo ""
       echo "Swarm commands:"
       echo "  docker stack services $STACK_NAME           # List services"
