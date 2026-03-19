@@ -3,8 +3,8 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "minitwit3" do |server|
-    server.vm.hostname = "minitwit3"
+  config.vm.define "minitwit" do |server|
+    server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
       config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
@@ -27,7 +27,7 @@ Vagrant.configure("2") do |config|
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
       override.nfs.functional = false
       override.vm.allowed_synced_folder_types = :rsync
-      override.ssh.private_key_path = '~/.ssh/testing_do'
+      override.ssh.private_key_path = '~/.ssh/devops_rsa'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
