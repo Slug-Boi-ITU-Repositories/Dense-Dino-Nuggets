@@ -16,10 +16,11 @@ func Connect(dsn string) (*gorm.DB, error) {
 		return nil, err
 	}
 	// Auto-migrate models
+	/*
 	err = DB.AutoMigrate(&model.User{}, &model.Message{}, &model.Follower{})
 	if err != nil {
 		return nil, err
 	}
-
+	*/
 	return DB, nil
 }
