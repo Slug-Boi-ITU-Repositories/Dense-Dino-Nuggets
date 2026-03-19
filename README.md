@@ -7,11 +7,20 @@ This is a fork of a student project of a small twitter like application (this is
 ### Environment setup
 
 The program requires some environment variables to be set. The minimum for running the application locally is this
+
 ```bash
 DATABASE_URL="<psql-dsn-string>"
 ```
 
 Full env setup for docker-compose file. Can also be deployed as a stack on a swarm
+
+```bash
+set -a                                                                                                               9m 18s
+source .env
+set +a
+```
+
+You need an env file file that includes these vars or you need to have them exported in your environment if you are using a .env file you can export them to your env by using the following command
 
 ```bash
 # Database Configuration
