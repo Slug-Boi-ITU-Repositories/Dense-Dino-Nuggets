@@ -39,7 +39,7 @@ Vagrant.configure("2") do |config|
 
     # Provisioning
     server.vm.provision "shell", env: {
-      "USERNAME" => ENV['DOCKER_USERNAME'],
+      "USERNAME" => ENV['DOCKER_USERNAME'] || "flakiator",
       # Database credentials - NO DEFAULTS (must be set in host environment)
       "CONTAINER_NAME_PREFIX" => ENV['CONTAINER_NAME_PREFIX'],
       "POSTGRES_USER" => ENV['POSTGRES_USER'],
