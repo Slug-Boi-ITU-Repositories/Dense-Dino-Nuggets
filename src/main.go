@@ -854,18 +854,18 @@ func main() {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	router.HandleFunc("/", timeline).Methods("GET")
-	router.HandleFunc("/public", public).Methods("GET")
-	router.HandleFunc("/add_message", addMessage).Methods("POST")
-	router.HandleFunc("/login", login).Methods("GET", "POST")
-	router.HandleFunc("/register-user", register).Methods("GET", "POST")
-	router.HandleFunc("/logout", logoutHandler).Methods("GET")
+	router.Handle("/", openapi.Logger(http.HandlerFunc(timeline), "My timeline")).Methods("GET")
+	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
+	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
+	router.Handle("/login", openapi.Logger(http.HandlerFunc(login), "Login")).Methods("GET", "POST")
+	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
+	router.Handle("/logout", openapi.Logger(http.HandlerFunc(logoutHandler), "Logout")).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
-	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
-	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
-	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
+	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
+	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
