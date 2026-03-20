@@ -20,7 +20,7 @@ Eliminate hardships and waste in the value stream -> We are setting up automatio
 
 We are good at swarming problems. We have set up automatic workflows for ensuring quality. We are all responsible for ensuring quality and give each other feedback - e.g. through our PRs. It usually takes less than a day before the code is reviewed and feedback is given.
 
-## Third Way - The Principles of Contiunal learning & Experimentation
+## Third Way - The Principles of Continual learning & Experimentation
 
 Safety Culture -> We aim for high psycological safety. We are here to learn. We are new to this. We all want a good time. We are good at asking the other team members when we need help with something and have a space where we can admit when we don't know how to continue with our tasks.
 

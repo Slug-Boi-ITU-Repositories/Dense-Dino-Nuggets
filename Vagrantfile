@@ -19,6 +19,14 @@ Vagrant.configure("2") do |config|
       vb.cpus = 2
     end
 
+    server.vm.provider :libvirt do |lv, override|
+      override.vm.box = "generic/ubuntu2204"
+      lv.memory = 2048
+      lv.cpus = 2
+      lv.driver = "kvm"
+      lv.default_prefix = ""
+    end
+
     # DigitalOcean (Cloud)
     server.vm.provider :digital_ocean do |provider, override|
       override.vm.box = "digital_ocean"
@@ -265,7 +273,6 @@ EOF
       echo "  docker stack ps $STACK_NAME                 # List tasks"
       echo "  docker service logs ${STACK_NAME}_minitwit  # View app logs"
       echo "  docker service logs ${STACK_NAME}_postgres  # View postgres logs"
-          SHELL
-
+SHELL
   end
 end

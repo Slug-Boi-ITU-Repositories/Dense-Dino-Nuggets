@@ -1,5 +1,9 @@
 # Diary of Dense Dino Nuggets
 
+## 13/03
+
+We have set up spellcheck. We have chosen to use misspell. It seems simple and is made specifically for Go. We were also considering CSpell but it seems like it would add unnecessary complexity and overlaps with the features of sonarqube.
+
 ## 06/03
 
 We set up tests and linter workflows on PRs. We set up Dagger for this.

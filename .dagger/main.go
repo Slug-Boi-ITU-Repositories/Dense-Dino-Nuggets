@@ -148,3 +148,37 @@ func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory, username strin
 		WithRegistryAuth(registry, username, password).
 		Publish(ctx, imageRef)
 }
+
+func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, error) {
+	return m.BuildEnv(src).
+		WithWorkdir("./src").
+		WithExec([]string{
+			"go", "install", "github.com/client9/misspell/cmd/misspell@latest",
+		}).
+		WithExec([]string{
+			"sh", "-c",
+			`find . -type f -name "*.go" -o -name "*.md" | grep -v "^./simulator/" | xargs misspell -error`,
+		}).
+		Stdout(ctx)
+}
+
+func (m *Ddn) Quality(ctx context.Context, src *dagger.Directory) error {
+	// Create error group
+	eg, gctx := errgroup.WithContext(ctx)
+
+	// Run linter
+	eg.Go(func() error {
+		_, err := m.Lint(gctx, src)
+		return err
+	})
+
+	// Run spellcheck
+	eg.Go(func() error {
+		_, err := m.Spellcheck(gctx, src)
+		return err
+	})
+
+	// Wait for all checks to complete
+	// If any checks fail, the error will be returned
+	return eg.Wait()
+}

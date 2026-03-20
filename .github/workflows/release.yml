@@ -31,7 +31,7 @@ jobs:
       - name: Build binary
         run: "go build -o ./minitwit ./src/main.go"
       - name: Zip project
-        run: "tar -zcvf minitwit.tar.gz minitwit README.md schema.sql static templates"
+        run: "tar -zcvf minitwit.tar.gz minitwit README.md static templates"
       - name: Auto Changelog
         uses: ardalanamini/auto-changelog@v4.0.1
         id  : changelog
