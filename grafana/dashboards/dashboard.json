@@ -77,8 +77,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 13,
+        "h": 6,
+        "w": 14,
         "x": 0,
         "y": 0
       },
@@ -109,7 +109,7 @@
           "refId": "A"
         }
       ],
-      "title": "New panel",
+      "title": "Status of Server",
       "transformations": [
         {
           "id": "renameByRegex",
@@ -120,6 +120,250 @@
         }
       ],
       "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PD00CCF208EE3E0D5"
+      },
+      "description": "The 99'th percentile of time to complete request in the last 5 minutes. Meaning that 99% of all requests are completed in this time or less.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 0.4,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.15
+              },
+              {
+                "color": "semi-dark-orange",
+                "value": 0.23
+              },
+              {
+                "color": "semi-dark-red",
+                "value": 0.3
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 14,
+        "y": 0
+      },
+      "id": 7,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(request_duration_bucket{path!=\"/metrics\"}[1m])))",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "99'th percentile of request time",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PD00CCF208EE3E0D5"
+      },
+      "description": "The 99.9'th percentile of time to complete request in the last 5 minutes. Meaning that 99.9% of all requests are completed in this time or less. Effectively the maximum time a request can be expected to take",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 0.4,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 0.15
+              },
+              {
+                "color": "semi-dark-orange",
+                "value": 0.23
+              },
+              {
+                "color": "semi-dark-red",
+                "value": 0.3
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "expr": "histogram_quantile(0.999, sum by(le) (rate(request_duration_bucket{path!=\"/metrics\"}[1m])))",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "99.9'th percentile of request time",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PD00CCF208EE3E0D5"
+      },
+      "description": "The time it takes to process a request averaged over the last minute",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 13,
+        "x": 0,
+        "y": 6
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "expr": "rate(request_duration_sum{path!=\"/metrics\"}[1m]) / (rate(request_duration_count{path!=\"/metrics\"}[1m]))",
+          "legendFormat": "{{method}} {{path}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Avg. Request Time",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -187,7 +431,7 @@
         "h": 8,
         "w": 11,
         "x": 13,
-        "y": 0
+        "y": 6
       },
       "id": 5,
       "options": {
@@ -207,7 +451,7 @@
       "targets": [
         {
           "editorMode": "builder",
-          "expr": "sum by(instance) (rate(requests_count[1m]))",
+          "expr": "sum by(instance) (rate(requests_count{path!=\"/metrics\"}[1m]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -282,7 +526,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 8
+        "y": 14
       },
       "id": 1,
       "options": {
@@ -381,7 +625,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 8
+        "y": 14
       },
       "id": 2,
       "options": {
@@ -476,7 +720,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 8
+        "y": 14
       },
       "id": 3,
       "options": {
@@ -521,6 +765,6 @@
   "timezone": "browser",
   "title": "Minitwit requests",
   "uid": "20e35418-d793-4dd9-b7fe-3dfe273e609f",
-  "version": 2,
+  "version": 1,
   "weekStart": ""
 }
