@@ -87,7 +87,7 @@ services:
     networks:
       - minitwit-network
     environment:
-      - DATABASE_URL=postgresql://minitwit_user:minitwit_password@postgres:5432/minitwit_db?sslmode=disable
+      - DATABASE_URL=postgresql://_:_@postgres:5432/minitwit_db?sslmode=disable
     depends_on:
       - postgres
     restart: unless-stopped
