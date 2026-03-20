@@ -11,6 +11,8 @@ Vagrant.configure("2") do |config|
       override.vm.box = "utm/bookworm"
       u.memory = 2048
       u.cpus = 2
+      # UTM: upload to a guaranteed writable temp path
+      override.vm.provision "file", source: "./docker-compose.yml", destination: "/tmp/docker-compose.yml"
     end
 
     server.vm.provider :virtualbox do |vb, override|
@@ -39,11 +41,11 @@ Vagrant.configure("2") do |config|
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
+      provider.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
     end
 
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
-    server.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
 
     # Provisioning
     server.vm.provision "shell", env: {
@@ -56,6 +58,7 @@ Vagrant.configure("2") do |config|
       "POSTGRES_HOST" => ENV['POSTGRES_HOST'],
       "POSTGRES_PORT" => ENV['POSTGRES_PORT'],
       "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
+      "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'],
       
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
@@ -66,9 +69,10 @@ Vagrant.configure("2") do |config|
       }, inline: <<-SHELL
       set -euo pipefail
 
-      VOLUME_MOUNT="/mnt/pgdata"
       VOLUME_DEVICE="/dev/sda"
       IMAGE_NAME="minitwitimage"
+      # For UTM use the dockerhub image for arm64
+      #IMAGE_NAME="minitwitutmimage"
       DOCKER_IMAGE="$USERNAME/$IMAGE_NAME"
       COMPOSE_FILE="docker-compose.yml"
       STACK_NAME="minitwit"
@@ -145,7 +149,16 @@ Vagrant.configure("2") do |config|
       }
       # Copy compose file
       mkdir -p /home/vagrant
-      cp /vagrant/$COMPOSE_FILE /home/vagrant/
+      if [ -f /vagrant/$COMPOSE_FILE ]; then
+        # DO/VirtualBox/libvirt path (existing behavior)
+        cp /vagrant/$COMPOSE_FILE /home/vagrant/
+      elif [ -f /tmp/$COMPOSE_FILE ]; then
+        # UTM fallback path
+        cp /tmp/$COMPOSE_FILE /home/vagrant/
+      else
+        echo "ERROR: Could not find $COMPOSE_FILE in /vagrant or /tmp"
+        exit 1
+      fi
 
       # Prepare the volume for PostgreSQL
       if [ -b "$VOLUME_DEVICE" ]; then
