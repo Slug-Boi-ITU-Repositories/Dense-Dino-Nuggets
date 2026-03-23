@@ -239,21 +239,8 @@ Vagrant.configure("2") do |config|
         sudo docker service logs ${STACK_NAME}_postgres --tail 20
       fi
 
-      cat > /tmp/pgloader.cmd <<-EOF
-      LOAD DATABASE FROM sqlite:///db/minitwit.db
-      INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
+      # DATABASE MIGRATION COMMAND GOES HERE
 
-      WITH include drop, create tables, create indexes, reset sequences,
-          disable triggers, batch rows = 10000, batch concurrency = 1
-
-      CAST type string to text drop typemod,
-          type datetime to timestamptz drop default drop not null using zero-dates-to-null,
-          type date to date drop default drop not null using zero-dates-to-null,
-          type boolean to boolean using tinyint-to-boolean;
-EOF
-
-      # Run pgloader with the command file
-      pgloader /tmp/pgloader.cmd
 
       # Check final status
       echo "Stack services:"
