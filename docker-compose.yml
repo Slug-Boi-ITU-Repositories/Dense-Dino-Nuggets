@@ -49,7 +49,7 @@ services:
       database:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://localuser:localpassword@database:5432/minitwit_db?sslmode=disable
+      - DATABASE_URL=postgresql://localuser:_@database:5432/minitwit_db?sslmode=disable
     volumes:
       - ./db/:/db/
     ports:
