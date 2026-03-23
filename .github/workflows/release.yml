@@ -15,9 +15,8 @@ jobs:
         uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77
         with:
           check: "**"
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
           version: "latest"
-        env:
-          DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
   build:
     needs: test
     if: success() 
@@ -74,6 +73,7 @@ jobs:
         with:
           version: "latest"
           verb: call
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
           module: .
           args: publish --src=. --username=${{ secrets.DOCKER_USERNAME }} --password=DOCKER_PASSWORD
 

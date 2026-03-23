@@ -18,6 +18,5 @@ jobs:
         uses: dagger/dagger-for-github@v8.4.0
         with:
           check: "**"
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
           version: "latest"
-        env:
-          DAGGER_CLOUD_TOKEN: ${{ secrets.DAGGER_CLOUD_TOKEN }}
