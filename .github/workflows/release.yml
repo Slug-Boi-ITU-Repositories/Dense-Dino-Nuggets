@@ -75,6 +75,17 @@ jobs:
           verb: call
           module: .
           args: publish --src=. --username=${{ secrets.DOCKER_USERNAME }} --password=DOCKER_PASSWORD
+  provision:
+    needs: publish
+    if: success()
+    name: provision
+    runs-on: macos-latest # Turns out macos comes packaged with vagrant
+    steps: 
+      - name: Setup environment
+        uses: actions/checkout@v4
+      - name: Provision container
+        run: vagrant provision minitwit
+
 
   
 
