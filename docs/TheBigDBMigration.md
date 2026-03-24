@@ -4,6 +4,13 @@
 
 This document outlines everything that we did to migrate our database and will document the process for those curious or if you need to do the same yourself.
 
+This was orchistrated by multiple people below are the participants of the migration on the night (in case you need to contact us in regards to anything).
+Participants:
+
+- @Slug-Boi
+- @Flakiator
+- @August-Brandt
+
 ## The setup
 
 To begin the migration process we first needed to completely rewrite the vagrant shell script to use our new docker-compose setup which connects a swarm of our application to a postgres database container. This required the machine hosted on Digital Ocean to have all the required docker packages as well as the code to check for swarm setup and rolling updates of the application containers. This was a really big rewrite that was tested at least 10+ times on a fresh DO droplet to make sure it actually behaved in an idiomatic way.

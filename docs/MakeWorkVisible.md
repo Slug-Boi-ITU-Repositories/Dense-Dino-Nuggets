@@ -45,3 +45,7 @@ regarding the refactoring of minitwit.
 ## 06/02
 
 We have started Refactoring minitwit from Python to Golang.
+
+## 19/03
+
+This was the big DB migration night, we ended up writing a long document outlining what happened during this move and how it was all orchistrated. This file can be found in this folder under the name of `TheBigDBMigration.md`.
