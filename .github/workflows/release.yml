@@ -92,6 +92,15 @@ jobs:
       - name: Setup environment
         uses: actions/checkout@v4
       - name: Provision container
+        env:
+          CONTAINER_NAME_PREFIX: "prod"
+          POSTGRES_DB: "minitwit_db"
+          POSTGRES_HOST: "postgres"
+          VOLUME_MOUNT: "/mnt/volume_fra1_01/pgdata"
+          POSTGRES_PORT: "5432"
+          DB_SSL_MODE: "disable"
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: vagrant provision minitwit
 
 
