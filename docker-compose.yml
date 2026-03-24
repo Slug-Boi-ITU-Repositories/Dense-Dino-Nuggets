@@ -1,94 +1,70 @@
 services:
-  prometheus-local:
-    image: prom/prometheus:latest
-    profiles: [local]
-    volumes:
-      - ./prometheus/prometheus_local.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - '9090:9090'
-    networks:
-      - minitwit-network
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-
-  grafana-local:
-    image: grafana/grafana
-    profiles: [local]
-    environment:
-      - PROMETHEUS_ADDRESS=prometheus-local
-    volumes:
-      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
-    ports:
-      - "3000:3000"
-    networks:
-      - minitwit-network
-
-  database:
+  postgres:
     image: postgres:15-alpine
-    profiles: [local, database]
     environment:
-      - POSTGRES_USER=localuser
-      - POSTGRES_PASSWORD=localpassword
-      - POSTGRES_DB=minitwit_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     networks:
       - minitwit-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 10s
-      timeout: 10s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '${POSTGRES_CPU_LIMIT:-0.2}'
+          memory: ${POSTGRES_MEM_LIMIT:-300M}
 
   minitwit:
-    image: minitwit-monitoring:latest
-    profiles: [local]
-    depends_on:
-      database:
-        condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql://localuser:_@database:5432/minitwit_db?sslmode=disable
-    volumes:
-      - ./db/:/db/
+    image: ${DOCKER_USERNAME:-flakiator}/minitwitimage:latest
     ports:
-      - "8080:8080"
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: ingress
     networks:
       - minitwit-network
-
-  prometheus-prod:
-    image: prom/prometheus:latest
-    profiles: [prod]
-    volumes:
-      - ./prometheus_data/:/prometheus/data/ 
-      - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - '9090:9090'
-    networks:
-      - monitoring
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-  
-  grafana-prod:
-    image: grafana/grafana
-    profiles: [prod]
     environment:
-      - PROMETHEUS_ADDRESS=prometheus-prod
-    volumes:
-      - ./grafana_data:/var/lib/grafana/
-      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
-    ports:
-      - "3000:3000"
-    networks:
-      - monitoring
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE:-disable}
+    depends_on:
+      - postgres
+    deploy:
+      mode: replicated
+      replicas: ${APP_REPLICAS:-2}
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+        reservations:
+          cpus: '0.2'
+          memory: 128M
 
+volumes:
+  postgres_data:
+    driver: local
+      
 networks:
   minitwit-network:
-    external: false
+    driver: overlay
+    attachable: true
     name: minitwit-network
-
-  monitoring:
-    external: false
-    name: monitoring
