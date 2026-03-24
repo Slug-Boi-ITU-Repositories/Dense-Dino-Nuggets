@@ -4,7 +4,7 @@
 
 This document outlines everything that we did to migrate our database and will document the process for those curious or if you need to do the same yourself.
 
-This was orchistrated by multiple people below are the participants of the migration on the night (in case you need to contact us in regards to anything).
+This was orchistrated by multiple people below are the participants of the migration on the night (in case you need to contact us in regards to anything).  
 Participants:
 
 - @Slug-Boi
