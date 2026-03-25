@@ -32,7 +32,7 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus/prometheus_local.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
@@ -80,14 +80,14 @@ services:
       - "3100:3100"
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml
-      - loki-data:/loki
+      #- loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - minitwit-network
     restart: unless-stopped
 
   minitwit:
-    image: minitwit-monitoring:latest
+    image: flakiator/minitwitutmimage:latest
     # ports:
     #   - "8080:8080"
     # SWARM PORTS (uncomment for swarm deployment, comment out local ports above)
