@@ -73,6 +73,18 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+  loki:
+    image: grafana/loki:3.6.7
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - minitwit-network
+    restart: unless-stopped
 
   minitwit:
     image: minitwit-monitoring:latest
@@ -90,6 +102,11 @@ services:
       - DATABASE_URL=postgresql://_:_@postgres:5432/minitwit_db?sslmode=disable
     depends_on:
       - postgres
+    logging:
+      driver: loki
+      options:
+        loki-url: http://loki:3100/loki/api/v1/push
+        loki-external-labels: service=minitwit,stack=local
     restart: unless-stopped
     deploy:
       mode: replicated
