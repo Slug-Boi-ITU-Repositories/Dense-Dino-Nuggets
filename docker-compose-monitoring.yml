@@ -60,7 +60,7 @@ services:
     networks:
       - minitwit-network
 
-    prometheus-prod:
+  prometheus-prod:
     image: prom/prometheus:latest
     profiles: [prod]
     volumes:
@@ -91,3 +91,6 @@ networks:
   minitwit-network:
     external: false
     name: minitwit-network
+  monitoring:
+    external: false
+    name: monitoring
