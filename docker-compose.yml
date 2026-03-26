@@ -44,6 +44,11 @@ services:
         mode: ingress
     networks:
       - minitwit-network
+    logging:
+      driver: loki
+      options:
+        loki-url: http://${MONITOR_IP}:3100/loki/api/v1/push
+        loki-external-labels: service=minitwit,env=prod
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE:-disable}
     depends_on:

@@ -59,6 +59,7 @@ Vagrant.configure("2") do |config|
       "POSTGRES_PORT" => ENV['POSTGRES_PORT'],
       "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
       "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'] || "/mnt/pgdata",
+      "MONITOR_IP" => ENV['MONITOR_IP'],
       
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
