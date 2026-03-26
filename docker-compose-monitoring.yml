@@ -1,0 +1,93 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: [local]
+    volumes:
+      - ./prometheus/prometheus_local.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - minitwit-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana
+    profiles: [local]
+    environment:
+      PROMETHEUS_ADDRESS: prometheus
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - "3000:3000"
+    networks:
+      - minitwit-network
+    
+  postgres:
+    image: postgres:15-alpine
+    profiles: [local]
+    container_name: minitwit-postgres
+    environment:
+      POSTGRES_USER: localuser
+      POSTGRES_PASSWORD: localpassword
+      POSTGRES_DB: minitwit_db
+    ports:
+      - "5432:5432"
+    networks:
+      - minitwit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minitwit_user -d minitwit_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minitwit:
+    image: minitwit-monitoring:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: [local]
+    environment:
+      DATABASE_URL: postgresql://localuser:localpassword@postgres:5432?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./db/:/db/
+    ports:
+      - "8080:8080"
+    networks:
+      - minitwit-network
+
+    prometheus-prod:
+    image: prom/prometheus:latest
+    profiles: [prod]
+    volumes:
+      - ./prometheus_data/:/prometheus/data/ 
+      - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+  
+  grafana-prod:
+    image: grafana/grafana
+    profiles: [prod]
+    environment:
+      - PROMETHEUS_ADDRESS=prometheus-prod
+    volumes:
+      - ./grafana_data:/var/lib/grafana/
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+
+networks:
+  minitwit-network:
+    external: false
+    name: minitwit-network

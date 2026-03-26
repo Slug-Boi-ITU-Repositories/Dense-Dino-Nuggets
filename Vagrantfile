@@ -275,4 +275,97 @@ Vagrant.configure("2") do |config|
       echo "  docker service logs ${STACK_NAME}_postgres  # View postgres logs"
 SHELL
   end
+
+  config.vm.define "monitoring" do |monitor|
+    monitor.vm.hostname = "monitoring"
+
+    monitor.vm.provider :utm do |u, override|
+      config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
+      override.vm.box = "utm/bookworm"
+      u.memory = 2048
+      u.cpus = 2
+    end
+
+    monitor.vm.provider :libvirt do |lv, override|
+      override.vm.box = "generic/ubuntu2204"
+      lv.memory = 2048
+      lv.cpus = 2
+      lv.driver = "kvm"
+      lv.default_prefix = ""
+    end
+
+    # DigitalOcean (Cloud)
+    monitor.vm.provider :digital_ocean do |provider, override|
+      override.vm.box = "digital_ocean"
+      override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
+      provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
+      provider.ssh_key_name = ENV["SSH_KEY_NAME"]
+      override.ssh.private_key_path = '~/.ssh/devops_rsa'
+      provider.image = "ubuntu-22-04-x64"
+      provider.region = "fra1"
+      provider.size = "s-1vcpu-1gb"
+    end
+
+    monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
+    monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
+    monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
+    monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
+    monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
+    monitor.vm.provision "shell", inline: <<-SHELL
+      sudo apt-get update -y
+      sudo apt-get install -y ca-certificates curl gnupg lsb-release
+      
+      # Uninstall conflicting packages
+      sudo apt remove --ignore-missing $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
+      
+      # Only add GPG key and repository if not already present
+      if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
+        echo "Setting up Docker's GPG key and repository (first time only)..."
+        
+        # Create keyrings directory
+        sudo install -m 0755 -d /etc/apt/keyrings
+        
+        # Add Docker's GPG key
+        curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
+        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+        # Add Docker repository
+        CODENAME=$(lsb_release -cs)
+        if [ "$CODENAME" = "bookworm" ]; then
+          CODENAME="bullseye"
+        fi
+
+        echo \
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
+          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+        sudo apt-get update -y
+        
+        echo "Docker repository configured"
+      else
+        echo "Docker GPG key already exists, skipping repository setup"
+      fi
+
+      # Update package list again (for some reason it won't work if we don't)
+      sudo apt-get update
+
+      # Docker engine
+      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      
+      mkdir -p ./prometheus_data
+      sudo chown -R 65534:65534 ./prometheus_data # Set correct user perms for prometheus
+      mkdir -p ./grafana_data
+      sudo chown -R 472:472 ./grafana_data # Set correct user perms for grafana
+      sudo docker compose --profile prod down
+      sudo docker compose --profile prod up -d
+      
+      echo "===================================="
+      echo "Monitor deployed and running!"
+      echo "===================================="
+
+      IP=$(hostname -I | awk '{print $1}')
+      echo "Access Prometheus at: http://$IP:9090"    
+      echo "Access Grafana at: http://$IP:3000"
+    SHELL
+  end
 end
