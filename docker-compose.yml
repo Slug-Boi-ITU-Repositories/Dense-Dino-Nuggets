@@ -23,18 +23,6 @@ services:
           cpus: '${POSTGRES_CPU_LIMIT:-0.2}'
           memory: ${POSTGRES_MEM_LIMIT:-300M}
 
-  loki:
-    image: grafana/loki:3.6.7
-    container_name: loki
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
-    command: -config.file=/etc/loki/local-config.yaml
-    networks:
-      - minitwit-network
-    restart: unless-stopped
-
   minitwit:
     image: ${DOCKER_USERNAME:-flakiator}/minitwitimage:latest
     ports:
