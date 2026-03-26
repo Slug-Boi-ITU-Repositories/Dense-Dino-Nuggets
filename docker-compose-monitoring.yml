@@ -54,6 +54,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      
   minitwit:
     image: minitwit-monitoring:latest
     build:
@@ -65,12 +66,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      loki:
+        condition: service_started
     volumes:
       - ./db/:/db/
     ports:
       - "8080:8080"
     networks:
       - minitwit-network
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: service=minitwit,env=local
 
   prometheus-prod:
     image: prom/prometheus:latest
