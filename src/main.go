@@ -21,8 +21,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	_ "github.com/mattn/go-sqlite3"
-
+	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -74,7 +73,6 @@ type TimelineData struct {
 	Endpoint    string
 }
 
-const DATABASE = "/db/minitwit.db"
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
@@ -827,15 +825,23 @@ func main() {
 	router := openapi.NewRouter(MinitwitAPIController)
 	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
 
-	// Check if database needs initialization
-	dbExists := true
-	if _, err := os.Stat(DATABASE); os.IsNotExist(err) {
-		dbExists = false
-		fmt.Println("Database does not exist. Will initialize after connection...")
+	// Check if DATABASE_URL is set in environment first
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		// Try loading from .env file
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file: ", err)
+		}
+    
+		dsn = os.Getenv("DATABASE_URL")
+		if dsn == "" {
+			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
+		}
 	}
 
 	// Create global GORM connection
-	GormDB, err := db.Connect(DATABASE)
+	GormDB, err := db.Connect(dsn)
 	if err != nil {
 		log.Fatal("Failed to connect to database with GORM:", err)
 	}
@@ -843,23 +849,25 @@ func main() {
 	UserRepo = repository.NewUserRepository(GormDB)
 	MessageRepo = repository.NewMessageRepository(GormDB)
 	FollowerRepo = repository.NewFollowerRepository(GormDB)
-	// Seed database with test data if it doesn't exist
-	if !dbExists {
+	// Seed database with initial data if empty
+	var userCount int64
+	GormDB.Model(&model.User{}).Count(&userCount)
+	if userCount == 0 {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	router.HandleFunc("/", timeline).Methods("GET")
-	router.HandleFunc("/public", public).Methods("GET")
-	router.HandleFunc("/add_message", addMessage).Methods("POST")
-	router.HandleFunc("/login", login).Methods("GET", "POST")
-	router.HandleFunc("/register-user", register).Methods("GET", "POST")
-	router.HandleFunc("/logout", logoutHandler).Methods("GET")
+	router.Handle("/", openapi.Logger(http.HandlerFunc(timeline), "My timeline")).Methods("GET")
+	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
+	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
+	router.Handle("/login", openapi.Logger(http.HandlerFunc(login), "Login")).Methods("GET", "POST")
+	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
+	router.Handle("/logout", openapi.Logger(http.HandlerFunc(logoutHandler), "Logout")).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
-	router.HandleFunc("/{username}/follow", FollowUserHandler).Methods("GET")
-	router.HandleFunc("/{username}/unfollow", UnfollowUserHandler).Methods("GET")
-	router.HandleFunc("/{username}", UserTimelineHandler).Methods("GET")
+	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
+	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
+	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
 
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))

@@ -39,10 +39,14 @@ func (r *MessageRepository) GetUserTimeline(userID uint, limit int) ([]model.Mes
 func (r *MessageRepository) GetPersonalTimeline(userID uint, limit int) ([]model.Message, error) {
 	var messages []model.Message
 	err := r.db.Preload("Author").
-		Where("(author_id = ? OR author_id IN (SELECT whom_id FROM follower WHERE who_id = ?)) AND flagged = 0", userID, userID).
-		Order("pub_date DESC").
-		Limit(limit).
-		Find(&messages).Error
+        Where(`author_id IN (
+            SELECT whom_id FROM follower WHERE who_id = ?
+            UNION
+            SELECT ?
+        ) AND flagged = 0`, userID, userID).
+        Order("pub_date DESC").
+        Limit(limit).
+        Find(&messages).Error
 	return messages, err
 }
 

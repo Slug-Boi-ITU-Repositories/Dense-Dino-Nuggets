@@ -24,7 +24,30 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type Ddn struct{}
+type Ddn struct {
+    Src *dagger.Directory
+}
+
+func New(
+    // +defaultPath="/"
+    src *dagger.Directory,
+) *Ddn {
+    return &Ddn{
+        Src: src,
+    }
+}
+
+func (m *Ddn) WithSource(src *dagger.Directory) *Ddn {
+    m.Src = src
+    return m
+}
+
+// func (m *Ddn) src(ctx context.Context) *dagger.Directory {
+//     if m.Src == nil {
+//         return dag.Host().Directory(".")
+//     }
+//     return m.Src
+// }
 
 // Returns a container that echoes whatever string argument is provided
 
@@ -69,22 +92,41 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 	return outputs
 }
 
+func (m *Ddn) PostgresService() *dagger.Service {
+    return dag.Container().
+        From("postgres:15-alpine").
+        WithEnvVariable("POSTGRES_USER", "testuser").
+        WithEnvVariable("POSTGRES_PASSWORD", "testpass").
+        WithEnvVariable("POSTGRES_DB", "testdb").
+        WithExposedPort(5432).
+        AsService()
+}
+
 func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
+	postgres := m.PostgresService()
+
+	dsn := "postgresql://testuser:testpass@postgres:5432/testdb?sslmode=disable"
+
 	return src.DockerBuild().
+		WithServiceBinding("postgres", postgres).
+        WithEnvVariable("DATABASE_URL", dsn).
 		AsService(dagger.ContainerAsServiceOpts{Args: []string{"./main"}})
 }
 
-func (m *Ddn) Test(ctx context.Context, src *dagger.Directory) (string, error) {
-	return m.BuildEnv(src).
-		WithWorkdir("./src").
-		WithServiceBinding("localhost", m.ServerService(src)).
-		WithExec([]string{"go", "test", "./..."}).
-		Stdout(ctx)
+// +check
+func (m *Ddn) Test(ctx context.Context) (string, error) {
+    server := m.ServerService(m.Src)
+    return m.BuildEnv(m.Src).
+        WithWorkdir("./src").
+        WithServiceBinding("localhost", server).
+        WithExec([]string{"go", "test", "./..."}).
+        Stdout(ctx)
 }
 
-func (m *Ddn) Lint(ctx context.Context, src *dagger.Directory) (string, error) {
+// +check
+func (m *Ddn) Lint(ctx context.Context) (string, error) {
 	return dag.Container().From("golangci/golangci-lint:latest-alpine").
-		WithDirectory("./src", src).
+		WithDirectory("./src", m.Src).
 		WithWorkdir("./src/src").
 		WithExec([]string{"golangci-lint", "run"}).Stdout(ctx)
 }
@@ -98,13 +140,13 @@ func (m *Ddn) RunAllTests(ctx context.Context, src *dagger.Directory) error {
 
 	// Run linter
 	eg.Go(func() error {
-		_, err := m.Lint(gctx, src)
+		_, err := m.Lint(gctx)
 		return err
 	})
 
 	// Run unit tests
 	eg.Go(func() error {
-		_, err := m.Test(gctx, src)
+		_, err := m.Test(gctx)
 		return err
 	})
 
@@ -130,8 +172,9 @@ func (m *Ddn) Publish(ctx context.Context, src *dagger.Directory, username strin
 		Publish(ctx, imageRef)
 }
 
-func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, error) {
-	return m.BuildEnv(src).
+// +check
+func (m *Ddn) Spellcheck(ctx context.Context) (string, error) {
+	return m.BuildEnv(m.Src).
 		WithWorkdir("./src").
 		WithExec([]string{
 			"go", "install", "github.com/client9/misspell/cmd/misspell@latest",
@@ -143,19 +186,19 @@ func (m *Ddn) Spellcheck(ctx context.Context, src *dagger.Directory) (string, er
 		Stdout(ctx)
 }
 
-func (m *Ddn) Quality(ctx context.Context, src *dagger.Directory) error {
+func (m *Ddn) Quality(ctx context.Context) error {
 	// Create error group
 	eg, gctx := errgroup.WithContext(ctx)
 
 	// Run linter
 	eg.Go(func() error {
-		_, err := m.Lint(gctx, src)
+		_, err := m.Lint(gctx)
 		return err
 	})
 
 	// Run spellcheck
 	eg.Go(func() error {
-		_, err := m.Spellcheck(gctx, src)
+		_, err := m.Spellcheck(gctx)
 		return err
 	})
 

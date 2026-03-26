@@ -4,6 +4,42 @@ This is a fork of a student project of a small twitter like application (this is
 
 ## Installation
 
+### Environment setup
+
+The program requires some environment variables to be set. The minimum for running the application locally is this
+
+```bash
+DATABASE_URL="<psql-dsn-string>"
+```
+
+Full env setup for docker-compose file. Can also be deployed as a stack on a swarm
+
+```bash
+set -a                                                                                                               9m 18s
+source .env
+set +a
+```
+
+You need an env file file that includes these vars or you need to have them exported in your environment if you are using a .env file you can export them to your env by using the following command
+
+```bash
+# Database Configuration
+POSTGRES_USER=minitwit_user
+POSTGRES_PASSWORD=minitwit_password
+POSTGRES_DB=minitwit_db
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+DB_SSL_MODE=disable
+
+# Container Names
+CONTAINER_NAME_PREFIX=minitwit
+
+# Resource Limits
+POSTGRES_CPU_LIMIT=0.5
+POSTGRES_MEM_LIMIT=512M
+APP_REPLICAS=3
+```
+
 Currently the project is hosted as a github release as well as a dockerhub image.
 
 ### Using docker image
@@ -65,9 +101,44 @@ SSH_KEY_NAME
 DOCKER_USERNAME
 ```
 
-And run with either utm virtualbox or digital_ocean provider:
+And run mintwit application with either utm virtualbox or digital_ocean provider:
 
-`vagrant up --provider=<provider>`
+`vagrant up minitwit --provider=<provider>`
+
+And run monitoring system with either utm, libvert, or digital_ocean provider:
+
+`vagrant up monitoring --provider=<provider>`
+
+## Running monitoring system
+The monitoring system uses Prometheus and Grafana which is configured through the files in `./prometheus` and `./grafana`. The system can be started with the docker compose file in the repository.
+
+### Running the monitoring for local testing and development
+Build an image of the minitwit application using the Dockerfile in the repo with the tag `minitwit-monitoring`
+```bash
+$ docker build -t minitwit-monitoring .
+```
+
+Run the docker compose file with the local profile
+```bash
+$ docker compose --profile local up -d
+```
+
+Then the minitwit application is available on `localhost:8080`, Prometheus at `localhost:9090`, and Grafana at `localhost:3000`.
+
+### Running the monitoring for production
+This setup assumes that the minitwit system is already running and accessable. 
+Edit the `./prometheus/prometheus_prod.yml` file so that the target matches the running minitwit.
+
+The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists locally in the current directory. Make sure to create these first and set the permissions like this:
+```bash
+$ sudo chown -R 65534:65534 ./prometheus_data
+$ sudo chown -R 472:472 ./grafana_data
+```
+
+Then the production setup can be started with
+```bash
+$ docker compose --profile prod up -d
+```
 
 ## Running dagger workflows
 
@@ -81,18 +152,20 @@ $ dagger
 **The workflows that can be run:**
 
 **Build**. *For building binaries for linux and mac*
+
 ```bash
 $ build --src=.
 ```
-**Test**. *For running tests for the system*
+
+**Test**. *For testing the whole system*
+*This will test, lint and spellcheck the entire system*
+
 ```bash
-$ test --src=.
+$ dagger check
 ```
-**Lint**. *Running linting for the system*
-```bash
-$ lint --src=.
-```
+
 **Publish**. *Building and publishing docker image to DockerHub*
+*Here DOCKER_PASSWORD refers the name of the env variable name that stores the password and not the actual password*
 ```bash
 $ dagger call publish --src . --username "flakiator" --password "DOCKER_PASSWORD"
 ```
