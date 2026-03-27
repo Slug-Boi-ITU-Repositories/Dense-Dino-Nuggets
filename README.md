@@ -152,18 +152,20 @@ $ dagger
 **The workflows that can be run:**
 
 **Build**. *For building binaries for linux and mac*
+
 ```bash
 $ build --src=.
 ```
-**Test**. *For running tests for the system*
+
+**Test**. *For testing the whole system*
+*This will test, lint and spellcheck the entire system*
+
 ```bash
-$ test --src=.
+$ dagger check
 ```
-**Lint**. *Running linting for the system*
-```bash
-$ lint --src=.
-```
+
 **Publish**. *Building and publishing docker image to DockerHub*
+*Here DOCKER_PASSWORD refers the name of the env variable name that stores the password and not the actual password*
 ```bash
 $ dagger call publish --src . --username "flakiator" --password "DOCKER_PASSWORD"
 ```
