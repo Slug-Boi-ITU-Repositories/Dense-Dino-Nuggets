@@ -20,10 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"minitwit/src/monitor"
-
 	_ "github.com/lib/pq"
-	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -86,14 +83,11 @@ func formatMessageTime(unixTimestamp int64) string {
 // This service should implement the business logic for every endpoint for the MinitwitAPI API.
 // Include any external packages or services that will be required by this service.
 type MinitwitAPIService struct {
-	metrics monitor.Metrics
 }
 
 // NewMinitwitAPIService creates a default api service
-func NewMinitwitAPIService(reg prometheus.Registerer) *MinitwitAPIService {
-	return &MinitwitAPIService{
-		metrics: *monitor.NewMetrics(reg),
-	}
+func NewMinitwitAPIService() *MinitwitAPIService {
+	return &MinitwitAPIService{}
 }
 
 // GetFollow -
@@ -167,7 +161,6 @@ func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, aut
 // PostFollow -
 func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, authorization string, payload FollowAction, latest int32) (ImplResponse, error) {
 	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-	s.metrics.FollowCounter.Inc()
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
@@ -430,7 +423,6 @@ func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username st
 // PostMessagesPerUser -
 func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username string, authorization string, payload PostMessage, latest int32) (ImplResponse, error) {
 	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-	s.metrics.TweetCounter.Inc()
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
@@ -482,7 +474,6 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 // PostRegister -
 func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterRequest, latest int32) (ImplResponse, error) {
 	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-	s.metrics.RegisterCounter.Inc()
 	updateLatestIfProvided(latest)
 
 	username := strings.TrimSpace(payload.Username)

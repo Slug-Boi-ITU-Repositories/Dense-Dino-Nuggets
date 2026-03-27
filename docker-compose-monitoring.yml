@@ -1,0 +1,136 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    profiles: [local]
+    volumes:
+      - ./prometheus/prometheus_local.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - minitwit-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+  grafana:
+    image: grafana/grafana
+    profiles: [local]
+    environment:
+      PROMETHEUS_ADDRESS: prometheus
+      LOKI_ADDRESS: loki
+    volumes:
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - "3000:3000"
+    networks:
+      - minitwit-network
+    depends_on:
+      - loki
+
+  loki:
+    image: grafana/loki:3.6.7
+    profiles: [local]
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - minitwit-network
+
+  postgres:
+    image: postgres:15-alpine
+    profiles: [local]
+    container_name: minitwit-postgres
+    environment:
+      POSTGRES_USER: localuser
+      POSTGRES_PASSWORD: localpassword
+      POSTGRES_DB: minitwit_db
+    ports:
+      - "5432:5432"
+    networks:
+      - minitwit-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U minitwit_user -d minitwit_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      
+  minitwit:
+    image: minitwit-monitoring:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: [local]
+    environment:
+      DATABASE_URL: postgresql://localuser:localpassword@postgres:5432?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      loki:
+        condition: service_started
+    volumes:
+      - ./db/:/db/
+    ports:
+      - "8080:8080"
+    networks:
+      - minitwit-network
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: service=minitwit,env=local
+
+  prometheus-prod:
+    image: prom/prometheus:latest
+    profiles: [prod]
+    volumes:
+      - ./prometheus_data/:/prometheus/data/ 
+      - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - monitoring
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+  
+  grafana-prod:
+    image: grafana/grafana
+    profiles: [prod]
+    environment:
+      - PROMETHEUS_ADDRESS=prometheus-prod
+      - LOKI_ADDRESS=loki-prod
+    volumes:
+      - ./grafana_data:/var/lib/grafana/
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
+    depends_on:
+      - loki-prod
+
+  loki-prod:
+    image: grafana/loki:3.6.7
+    profiles: [prod]
+    ports:
+      - "3100:3100"  # Exposed so swarm nodes can push logs to this droplet
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki  # Persist logs across restarts
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  loki_data:
+    driver: local
+
+networks:
+  minitwit-network:
+    external: false
+    name: minitwit-network
+  monitoring:
+    external: false
+    name: monitoring

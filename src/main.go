@@ -19,6 +19,7 @@ import (
 	"time"
 
 	openapi "minitwit/src/apimodels/go"
+	"minitwit/src/monitor"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -874,10 +875,11 @@ func main() {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	MinitwitAPIService := openapi.NewMinitwitAPIService(reg)
+	MinitwitAPIService := openapi.NewMinitwitAPIService()
 	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
 
 	router := openapi.NewRouter(MinitwitAPIController)
+	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
 
 	// Check if DATABASE_URL is set in environment first
 	dsn := os.Getenv("DATABASE_URL")
@@ -922,6 +924,7 @@ func main() {
 	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
 	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
 	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
+
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
