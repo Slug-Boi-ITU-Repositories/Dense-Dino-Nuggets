@@ -125,10 +125,10 @@ Vagrant.configure("2") do |config|
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
 
       # Install loki plugin if not exists
-      if [ ! docker plugin ls | grep loki ]; then
-        docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+      if ! sudo docker plugin ls | grep -q "loki"; then
+        sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
       fi
-
+  
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
         echo "Swarm not active. Initializing..."
