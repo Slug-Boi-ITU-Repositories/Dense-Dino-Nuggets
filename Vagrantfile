@@ -323,7 +323,7 @@ SHELL
     monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
     monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
-    monitor.vm.proviison "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
+    monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
     monitor.vm.provision "shell", inline: <<-SHELL
       sudo apt-get update -y
