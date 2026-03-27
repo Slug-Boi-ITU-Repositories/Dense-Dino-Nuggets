@@ -80,7 +80,7 @@ Vagrant.configure("2") do |config|
 
 
       # Check that env vars that are not default valued are actually set
-      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST"
+      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
           echo "ERROR: $var is not set. Please set it in your host environment."
@@ -123,6 +123,11 @@ Vagrant.configure("2") do |config|
       fi
 
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
+
+      # Install loki plugin if not exists
+      if [ ! docker plugin ls | grep loki ]; then
+        docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+      fi
 
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
