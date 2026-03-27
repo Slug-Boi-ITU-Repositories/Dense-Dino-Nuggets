@@ -57,14 +57,15 @@ func (r *MessageRepository) CountUserTimeline(userID uint) (int64, error) {
 func (r *MessageRepository) GetPersonalTimeline(userID uint, limit int, offset int) ([]model.Message, error) {
 	var messages []model.Message
 	err := r.db.Preload("Author").
-        Where(`author_id IN (
+		Where(`author_id IN (
             SELECT whom_id FROM follower WHERE who_id = ?
             UNION
             SELECT ?
         ) AND flagged = 0`, userID, userID).
-        Order("pub_date DESC").
-        Limit(limit).
-        Find(&messages).Error
+		Order("pub_date DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&messages).Error
 	return messages, err
 }
 

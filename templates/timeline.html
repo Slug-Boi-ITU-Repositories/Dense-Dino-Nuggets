@@ -43,11 +43,11 @@ My Timeline {{end}} {{end}} {{define "body"}}
 </ul>
 <div class="pagination">
   {{if gt .Page 1}}
-    <a href="?page={{.Page | pred}}">Previous</a>
+    <a href="?page={{.Page | previous}}">Previous</a>
   {{end}}
   <span>Page {{.Page}} of {{.TotalPages}}</span>
   {{if lt .Page .TotalPages}}
-    <a href="?page={{.Page | succ}}">Next</a>
+    <a href="?page={{.Page | next}}">Next</a>
   {{end}}
 </div>
 {{end}}

@@ -233,8 +233,8 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		Funcs(template.FuncMap{
 			"gravatar":        gravatar_url,
 			"format_datetime": format_datetime,
-			"pred": func(i int) int { return i - 1 },
-			"succ": func(i int) int { return i + 1 },
+			"previous": func(i int) int { return i - 1 },
+			"next": func(i int) int { return i + 1 },
 		}).
 		ParseFiles("templates/layout.html", "templates/timeline.html")
 	if err != nil {
@@ -302,6 +302,8 @@ func public(w http.ResponseWriter, r *http.Request) {
 		Funcs(template.FuncMap{
 			"gravatar":        gravatar_url,
 			"format_datetime": format_datetime,
+			"previous":            func(i int) int { return i - 1 },
+			"next":            func(i int) int { return i + 1 },
 		}).
 		ParseFiles("templates/layout.html", "templates/timeline.html")
 	if err != nil {
@@ -399,6 +401,8 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	template, err := template.New("layout.html").Funcs(template.FuncMap{
 		"gravatar":        gravatar_url,
 		"format_datetime": format_datetime,
+		"previous":            func(i int) int { return i - 1 },
+		"next":            func(i int) int { return i + 1 },
 	}).
 		ParseFiles("templates/layout.html", "templates/timeline.html")
 	if err != nil {
