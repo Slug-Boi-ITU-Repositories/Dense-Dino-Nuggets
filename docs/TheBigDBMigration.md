@@ -291,7 +291,7 @@ EOF
 
 ## Slow application
 
-After the migration we monitored and tested the system manually and noticed that the frontend seemed extremly slow (2+ seconds response time on requests), but only on the real frontend not the API endpoints. Since we only had logging for the endpoints this was very hard to debug. We added logging output to the frontend and eventually figured out that it was the SQL queres that were extremely slow to respond. We eventually settled on it being an indexing problem and manually applied these indexing rules to our database.
+After the migration we monitored and tested the system manually and noticed that the frontend seemed extremely slow (2+ seconds response time on requests), but only on the real frontend not the API endpoints. Since we only had logging for the endpoints this was very hard to debug. We added logging output to the frontend and eventually figured out that it was the SQL queries that were extremely slow to respond. We eventually settled on it being an indexing problem and manually applied these indexing rules to our database.
 
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY idx_user_username ON "user"(username);
