@@ -307,4 +307,4 @@ After all these changes the app seemed responsive again and we've started monito
 
 ## Metrics
 
-We seem to have had a downtime period of less than 5 minutes (closer to 3 minutes) which was very good and from our very rough estimates we seem to have lost/dropped basically no register requests during this time which would in turn result in no continued errors of users trying to login to non-existant users. This is a very optimal outcome and the group is very happy with the migration process.
+We seem to have had a downtime period of less than 5 minutes (closer to 3 minutes) which was very good and from our very rough estimates we seem to have lost/dropped basically no register requests during this time which would in turn result in no continued errors of users trying to follow or tweet from non-existant users. This is a very optimal outcome and the group is very happy with the migration process.
