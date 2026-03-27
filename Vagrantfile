@@ -201,14 +201,20 @@ Vagrant.configure("2") do |config|
         
         # Update the service with rolling update
         echo "Starting rolling update of minitwit service..."
-        sudo docker service update \
-          --image $DOCKER_IMAGE \
-          --force \
-          --update-parallelism 1 \
-          --update-delay 10s \
-          --update-order start-first \
-          --update-failure-action rollback \
-          ${STACK_NAME}_minitwit
+        # sudo docker service update \
+        #   --image $DOCKER_IMAGE \
+        #   --force \
+        #   --update-parallelism 1 \
+        #   --update-delay 10s \
+        #   --update-order start-first \
+        #   --update-failure-action rollback \
+        #   ${STACK_NAME}_minitwit
+
+        sudo docker stack deploy \
+          --compose-file /home/vagrant/docker-compose.processed.yml \
+          --with-registry-auth \
+          --prune \
+          $STACK_NAME
         
         # Monitor the update
         echo "Monitoring rolling update..."
@@ -309,8 +315,10 @@ SHELL
 
     monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
     monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
+    monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
     monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
+    monitor.vm.proviison "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
     monitor.vm.provision "shell", inline: <<-SHELL
       sudo apt-get update -y
