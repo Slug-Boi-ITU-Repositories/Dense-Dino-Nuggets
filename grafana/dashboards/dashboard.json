@@ -800,6 +800,5 @@
   "timezone": "browser",
   "title": "Minitwit requests",
   "uid": "20e35418-d793-4dd9-b7fe-3dfe273e609f",
-  "version": 1.1,
-  "weekStart": ""
+  "overwrite": true
 }
