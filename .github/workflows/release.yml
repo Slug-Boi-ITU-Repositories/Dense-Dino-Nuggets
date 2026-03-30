@@ -6,17 +6,17 @@ on:
       - 'v*'
 
 jobs:
-  test: 
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup environment
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: Test
+      - name: Run checks
         uses: dagger/dagger-for-github@27b130bf0f79a7f6fbbbe0fbca6760dc9bb40a77
         with:
-          module: .
-          args: test --src=.    
-  # Add concurency here?
+          check: "**"
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
+          version: "latest"
   build:
     needs: test
     if: success() 
@@ -81,6 +81,7 @@ jobs:
         with:
           version: "latest"
           verb: call
+          cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
           module: .
           args: publish --src=. --username=${{ secrets.DOCKER_USERNAME }} --password=DOCKER_PASSWORD
   provision:

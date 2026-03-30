@@ -1,73 +1,33 @@
-# -*- mode: ruby -*-
-# vi: set ft=ruby :
+# The DB Migration Saga
 
-Vagrant.configure("2") do |config|
+## Introduction
 
-  config.vm.define "minitwit" do |server|
-    server.vm.hostname = "minitwit"
+This document outlines everything that we did to migrate our database and will document the process for those curious or if you need to do the same yourself.
 
-    server.vm.provider :utm do |u, override|
-      config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
-      override.vm.box = "utm/bookworm"
-      u.memory = 2048
-      u.cpus = 2
-      # UTM: upload to a guaranteed writable temp path
-      override.vm.provision "file", source: "./docker-compose.yml", destination: "/tmp/docker-compose.yml"
-    end
+This was orchistrated by multiple people below are the participants of the migration on the night (in case you need to contact us in regards to anything).  
+Participants:
 
-    server.vm.provider :virtualbox do |vb, override|
-      override.vm.box = "ubuntu/jammy64"
-      vb.memory = 2048
-      vb.cpus = 2
-    end
+- @Slug-Boi
+- @Flakiator
+- @August-Brandt
 
-    server.vm.provider :libvirt do |lv, override|
-      override.vm.box = "generic/ubuntu2204"
-      lv.memory = 2048
-      lv.cpus = 2
-      lv.driver = "kvm"
-      lv.default_prefix = ""
-    end
+## The setup
 
-    # DigitalOcean (Cloud)
-    server.vm.provider :digital_ocean do |provider, override|
-      override.vm.box = "digital_ocean"
-      override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
-      provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
-      provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-      override.nfs.functional = false
-      override.vm.allowed_synced_folder_types = :rsync
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
-      provider.image = "ubuntu-22-04-x64"
-      provider.region = "fra1"
-      provider.size = "s-1vcpu-1gb"
-      provider.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
-    end
+To begin the migration process we first needed to completely rewrite the vagrant shell script to use our new docker-compose setup which connects a swarm of our application to a postgres database container. This required the machine hosted on Digital Ocean to have all the required docker packages as well as the code to check for swarm setup and rolling updates of the application containers. This was a really big rewrite that was tested at least 10+ times on a fresh DO droplet to make sure it actually behaved in an idiomatic way.
 
-    # Local port forwarding (ignored by DO)
-    server.vm.network "forwarded_port", guest: 8080, host: 8080
+## Setting up the real container
 
-    # Provisioning
-    server.vm.provision "shell", env: {
-      "USERNAME" => ENV['DOCKER_USERNAME'] || "flakiator",
-      # Database credentials - NO DEFAULTS (must be set in host environment)
-      "CONTAINER_NAME_PREFIX" => ENV['CONTAINER_NAME_PREFIX'],
-      "POSTGRES_USER" => ENV['POSTGRES_USER'],
-      "POSTGRES_PASSWORD" => ENV['POSTGRES_PASSWORD'],
-      "POSTGRES_DB" => ENV['POSTGRES_DB'],
-      "POSTGRES_HOST" => ENV['POSTGRES_HOST'],
-      "POSTGRES_PORT" => ENV['POSTGRES_PORT'],
-      "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
-      "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'] || "/mnt/pgdata",
-      "MONITOR_IP" => ENV['MONITOR_IP'],
-      
-      # Resource limits - WITH DEFAULTS
-      "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
-      "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
-      "APP_REPLICAS" => ENV['APP_REPLICAS'] || "2",
-      "APP_CPU_LIMIT" => ENV['APP_CPU_LIMIT'] || "0.2",
-      "APP_MEM_LIMIT" => ENV['APP_MEM_LIMIT'] || "256M"
-      }, inline: <<-SHELL
+The vagrant script would have most likely failed or at worst killed our entire app if ran unsupervised against the container, instead we ran the script piecewise to first setup all the packages and keys on the container and then lastly we preped a shell script on the machine that would kill the old app and setup the swarm to apply the schema to the new postgres DB and lastly copy all the data over from our SQLITE3 DB into the new DB.
+
+### The setup script
+
+Below is the script that was ran initially to setup the container in preperation for the big move.
+
+<details>
+
+<summary>Setup scritp</summary>
+
+```bash
       set -euo pipefail
 
       VOLUME_DEVICE="/dev/sda"
@@ -80,7 +40,7 @@ Vagrant.configure("2") do |config|
 
 
       # Check that env vars that are not default valued are actually set
-      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
+      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
           echo "ERROR: $var is not set. Please set it in your host environment."
@@ -124,11 +84,6 @@ Vagrant.configure("2") do |config|
 
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
 
-      # Install loki plugin if not exists
-      if ! sudo docker plugin ls | grep -q "loki"; then
-        sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
-      fi
-  
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
         echo "Swarm not active. Initializing..."
@@ -194,6 +149,19 @@ Vagrant.configure("2") do |config|
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
 
+```
+
+</details>
+
+## The big move
+
+We decided to wait with the move till late in the day 21:00 as the app seemed slow in user interaction at this time. Once the time came we ran the rest of the provisioning script which can be found below.
+
+<details>
+
+<summary>Kill and switch script</summary>
+
+```bash
       # Check if stack exists
       cd /home/vagrant
       if sudo docker stack ls | grep -q "$STACK_NAME"; then
@@ -206,20 +174,14 @@ Vagrant.configure("2") do |config|
         
         # Update the service with rolling update
         echo "Starting rolling update of minitwit service..."
-        # sudo docker service update \
-        #   --image $DOCKER_IMAGE \
-        #   --force \
-        #   --update-parallelism 1 \
-        #   --update-delay 10s \
-        #   --update-order start-first \
-        #   --update-failure-action rollback \
-        #   ${STACK_NAME}_minitwit
-
-        sudo docker stack deploy \
-          --compose-file /home/vagrant/docker-compose.processed.yml \
-          --with-registry-auth \
-          --prune \
-          $STACK_NAME
+        sudo docker service update \
+          --image $DOCKER_IMAGE \
+          --force \
+          --update-parallelism 1 \
+          --update-delay 10s \
+          --update-order start-first \
+          --update-failure-action rollback \
+          ${STACK_NAME}_minitwit
         
         # Monitor the update
         echo "Monitoring rolling update..."
@@ -252,7 +214,21 @@ Vagrant.configure("2") do |config|
       fi
 
       # DATABASE MIGRATION COMMAND GOES HERE
+      cat > /tmp/pgloader.cmd <<-EOF
+      LOAD DATABASE FROM sqlite:///db/minitwit.db
+      INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
 
+      WITH include drop, create tables, create indexes, reset sequences,
+          disable triggers, batch rows = 10000, batch concurrency = 1
+
+      CAST type string to text drop typemod,
+          type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+          type date to date drop default drop not null using zero-dates-to-null,
+          type boolean to boolean using tinyint-to-boolean;
+EOF
+
+      # Run pgloader with the command file
+      pgloader /tmp/pgloader.cmd
 
       # Check final status
       echo "Stack services:"
@@ -285,101 +261,50 @@ Vagrant.configure("2") do |config|
       echo "  docker stack ps $STACK_NAME                 # List tasks"
       echo "  docker service logs ${STACK_NAME}_minitwit  # View app logs"
       echo "  docker service logs ${STACK_NAME}_postgres  # View postgres logs"
-SHELL
-  end
+```
 
-  config.vm.define "monitoring" do |monitor|
-    monitor.vm.hostname = "monitoring"
+</details>
 
-    monitor.vm.provider :utm do |u, override|
-      config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
-      override.vm.box = "utm/bookworm"
-      u.memory = 2048
-      u.cpus = 2
-    end
+The most interesting part of this is the actual DB migration part which can be found in the section below.
 
-    monitor.vm.provider :libvirt do |lv, override|
-      override.vm.box = "generic/ubuntu2204"
-      lv.memory = 2048
-      lv.cpus = 2
-      lv.driver = "kvm"
-      lv.default_prefix = ""
-    end
+### Migration command from SQLITE3 to Postgres
 
-    # DigitalOcean (Cloud)
-    monitor.vm.provider :digital_ocean do |provider, override|
-      override.vm.box = "digital_ocean"
-      override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
-      provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
-      provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
-      provider.image = "ubuntu-22-04-x64"
-      provider.region = "fra1"
-      provider.size = "s-1vcpu-1gb"
-    end
+Paste the command below into your vagrant shell script after the DB has been setup using postgres and is running in a docker container. This will migrate all the data from the SQLITE3 database into the new postgres DB. WARNING, this will override any data in the postgres DB do not do this on a non empty DB or you will lose data. Fun fact if you move the ending EOF inline with the rest of the script the command explodes.
 
-    monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
-    monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
-    monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
-    monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
-    monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
-    monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
-    monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
-    monitor.vm.provision "shell", inline: <<-SHELL
-      sudo apt-get update -y
-      sudo apt-get install -y ca-certificates curl gnupg lsb-release
-      
-      # Uninstall conflicting packages
-      sudo apt remove --ignore-missing $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-      
-      # Only add GPG key and repository if not already present
-      if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-        echo "Setting up Docker's GPG key and repository (first time only)..."
-        
-        # Create keyrings directory
-        sudo install -m 0755 -d /etc/apt/keyrings
-        
-        # Add Docker's GPG key
-        curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
-        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+```bash
+      cat > /tmp/pgloader.cmd <<-EOF
+      LOAD DATABASE FROM sqlite:///db/minitwit.db
+      INTO postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_DB}
 
-        # Add Docker repository
-        CODENAME=$(lsb_release -cs)
-        if [ "$CODENAME" = "bookworm" ]; then
-          CODENAME="bullseye"
-        fi
+      WITH include drop, create tables, create indexes, reset sequences,
+          disable triggers, batch rows = 10000, batch concurrency = 1
 
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      CAST type string to text drop typemod,
+          type datetime to timestamptz drop default drop not null using zero-dates-to-null,
+          type date to date drop default drop not null using zero-dates-to-null,
+          type boolean to boolean using tinyint-to-boolean;
+EOF
 
-        sudo apt-get update -y
-        
-        echo "Docker repository configured"
-      else
-        echo "Docker GPG key already exists, skipping repository setup"
-      fi
+      # Run pgloader with the command file
+      pgloader /tmp/pgloader.cmd
+```
 
-      # Update package list again (for some reason it won't work if we don't)
-      sudo apt-get update
+## Slow application
 
-      # Docker engine
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      
-      mkdir -p ./prometheus_data
-      sudo chown -R 65534:65534 ./prometheus_data # Set correct user perms for prometheus
-      mkdir -p ./grafana_data
-      sudo chown -R 472:472 ./grafana_data # Set correct user perms for grafana
-      sudo docker compose --profile prod down
-      sudo docker compose --profile prod up -d
-      
-      echo "===================================="
-      echo "Monitor deployed and running!"
-      echo "===================================="
+After the migration we monitored and tested the system manually and noticed that the frontend seemed extremely slow (2+ seconds response time on requests), but only on the real frontend not the API endpoints. Since we only had logging for the endpoints this was very hard to debug. We added logging output to the frontend and eventually figured out that it was the SQL queries that were extremely slow to respond. We eventually settled on it being an indexing problem and manually applied these indexing rules to our database.
 
-      IP=$(hostname -I | awk '{print $1}')
-      echo "Access Prometheus at: http://$IP:9090"    
-      echo "Access Grafana at: http://$IP:3000"
-    SHELL
-  end
-end
+```sql
+CREATE UNIQUE INDEX CONCURRENTLY idx_user_username ON "user"(username);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_message_author ON message(author_id);
+CREATE INDEX CONCURRENTLY idx_message_flagged_pubdate ON message(flagged, pub_date DESC);
+CREATE INDEX CONCURRENTLY idx_message_author_pubdate  ON message(author_id, pub_date DESC);
+CREATE UNIQUE INDEX CONCURRENTLY idx_follower_who_whom ON follower(who_id, whom_id);
+```
+
+We also noticed that one the queries we had generated with GORM was very slow, it turns out doing OR in GORM results in a full search on both queries on all rows... This is the worst possible scenario and no matter what would result in really bad running times. We settled on rewriting the command to instead do 2 GORM based queries to get what the results of the 2 branches of the OR statement was and afterwards utilized a Postgres specific command called `UNION ALL` which helps us union the 2 branches removing all duplicates. This new query is near instant as it now respects the indexing rules we've applied to the tables and no longer does a full search of all the rows twice. All this can be found in the DB query function in our go files located in the repository folder.
+
+After all these changes the app seemed responsive again and we've started monitoring on a seperate droplet with Prometheus and Grafana.
+
+## Metrics
+
+We seem to have had a downtime period of less than 5 minutes (closer to 3 minutes) which was very good and from our very rough estimates we seem to have lost/dropped basically no register requests during this time which would in turn result in no continued errors of users trying to follow or tweet from non-existant users. This is a very optimal outcome and the group is very happy with the migration process.

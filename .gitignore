@@ -37,5 +37,8 @@ go.work.sum
 # .idea/
 # .vscode/
 
+# MacOS specific files
+.DS_Store
+
 # Database
 *.db
