@@ -15,7 +15,7 @@ func NewMessageRepository(database *gorm.DB) *MessageRepository {
 	return &MessageRepository{db: database}
 }
 
-func (r *MessageRepository) GetPublicTimeline(limit int, offset int) ([]model.Message, error) {
+func (r *MessageRepository) GetPublicTimeline(limit, offset int) ([]model.Message, error) {
 	var messages []model.Message
 	err := r.db.Preload("Author").
 		Where("flagged = 0").
