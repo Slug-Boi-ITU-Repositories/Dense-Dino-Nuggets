@@ -191,6 +191,15 @@ func renderTimelineTemplate(w http.ResponseWriter, data TimelineData) error {
 	return tmpl.Execute(w, data)
 }
 
+func getPageAndOffset(r *http.Request) (int, int) {
+	page, err := strconv.Atoi(r.URL.Query().Get("page"))
+	if err != nil || page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * PER_PAGE
+	return page, offset
+}
+
 func timeline(w http.ResponseWriter, r *http.Request) {
 	user, err := getUser(r)
 	if err != nil {
@@ -205,11 +214,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	offset := (page - 1) * PER_PAGE
+	page, offset := getPageAndOffset(r)
 
 	messages, err := MessageRepo.GetPersonalTimeline(uint(user.UserID), PER_PAGE, offset)
 	if err != nil {
@@ -261,11 +266,7 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	offset := (page - 1) * PER_PAGE
+	page, offset := getPageAndOffset(r)
 
 	messages, err := MessageRepo.GetPublicTimeline(PER_PAGE, offset)
 	if err != nil {
@@ -336,11 +337,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		Email:    userEmail,
 	}
 
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	offset := (page - 1) * PER_PAGE
+	page, offset := getPageAndOffset(r)
 
 	// Get messages data
 	messages, err := MessageRepo.GetUserTimeline(uint(userId), PER_PAGE, offset)
