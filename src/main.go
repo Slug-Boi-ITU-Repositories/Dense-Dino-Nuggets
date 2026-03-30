@@ -68,13 +68,13 @@ type LoginData struct {
 }
 
 type TimelineData struct {
-    BaseTemplateData
-    Messages    []model.Message
-    ProfileUser *User
-    Follows     bool
-    Endpoint    string
-    Page        int
-    TotalPages  int
+	BaseTemplateData
+	Messages    []model.Message
+	ProfileUser *User
+	Follows     bool
+	Endpoint    string
+	Page        int
+	TotalPages  int
 }
 
 const PER_PAGE = 30
@@ -175,6 +175,22 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(emailHash[:]), size)
 }
 
+func renderTimelineTemplate(w http.ResponseWriter, data TimelineData) error {
+	tmpl, err := template.New("layout.html").
+		Funcs(template.FuncMap{
+			"gravatar":        gravatar_url,
+			"format_datetime": format_datetime,
+			"previous":        func(i int) int { return i - 1 },
+			"next":            func(i int) int { return i + 1 },
+		}).
+		ParseFiles("templates/layout.html", "templates/timeline.html")
+	if err != nil {
+		return err
+	}
+
+	return tmpl.Execute(w, data)
+}
+
 func timeline(w http.ResponseWriter, r *http.Request) {
 	user, err := getUser(r)
 	if err != nil {
@@ -183,32 +199,32 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
-    if user == nil {
-        http.Redirect(w, r, "/public", http.StatusFound)
-        return
-    }
+	fmt.Printf("We got a visitor from: %s\n", r.RemoteAddr)
+	if user == nil {
+		http.Redirect(w, r, "/public", http.StatusFound)
+		return
+	}
 
-    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-    if page < 1 {
-        page = 1
-    }
-    offset := (page - 1) * PER_PAGE
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * PER_PAGE
 
-    messages, err := MessageRepo.GetPersonalTimeline(uint(user.UserID), PER_PAGE, offset)
-    if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	messages, err := MessageRepo.GetPersonalTimeline(uint(user.UserID), PER_PAGE, offset)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    totalMessages, err := MessageRepo.CountPersonalTimeline(uint(user.UserID))
-    if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
+	totalMessages, err := MessageRepo.CountPersonalTimeline(uint(user.UserID))
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
 
 	flashes, err := getFlashes(r, w)
 	if err != nil {
@@ -217,32 +233,19 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    templateData := TimelineData{
-        BaseTemplateData: BaseTemplateData{
-            User:    user, // Pass the current user (nil in this case)
-            Flashes: flashes,
-        },
-        Messages:    messages,
-        ProfileUser: user,
-        Endpoint:    "timeline",
-        Page:        page,
-        TotalPages:  totalPages,
-    }
-
-	tmpl, err := template.New("layout.html").
-		Funcs(template.FuncMap{
-			"gravatar":        gravatar_url,
-			"format_datetime": format_datetime,
-			"previous": func(i int) int { return i - 1 },
-			"next": func(i int) int { return i + 1 },
-		}).
-		ParseFiles("templates/layout.html", "templates/timeline.html")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
+		},
+		Messages:    messages,
+		ProfileUser: user,
+		Endpoint:    "timeline",
+		Page:        page,
+		TotalPages:  totalPages,
 	}
-	err = tmpl.Execute(w, templateData)
+
+	err = renderTimelineTemplate(w, templateData)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -258,26 +261,26 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-    if page < 1 {
-        page = 1
-    }
-    offset := (page - 1) * PER_PAGE
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * PER_PAGE
 
-    messages, err := MessageRepo.GetPublicTimeline(PER_PAGE, offset)
-    if err != nil {
-        log.Println(err.Error())
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	messages, err := MessageRepo.GetPublicTimeline(PER_PAGE, offset)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    totalMessages, err := MessageRepo.CountPublicTimeline()
-    if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
+	totalMessages, err := MessageRepo.CountPublicTimeline()
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
 
 	flashes, err := getFlashes(r, w)
 	if err != nil {
@@ -286,32 +289,19 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    templateData := TimelineData{
-        BaseTemplateData: BaseTemplateData{
-            User:    user, // Pass the current user (nil in this case)
-            Flashes: flashes,
-        },
-        Messages:    messages,
-        ProfileUser: user,
-        Endpoint:    "public_timeline",
-        Page:        page,
-        TotalPages:  totalPages,
-    }
-
-	tmpl, err := template.New("layout.html").
-		Funcs(template.FuncMap{
-			"gravatar":        gravatar_url,
-			"format_datetime": format_datetime,
-			"previous":            func(i int) int { return i - 1 },
-			"next":            func(i int) int { return i + 1 },
-		}).
-		ParseFiles("templates/layout.html", "templates/timeline.html")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
+		},
+		Messages:    messages,
+		ProfileUser: user,
+		Endpoint:    "public_timeline",
+		Page:        page,
+		TotalPages:  totalPages,
 	}
-	err = tmpl.Execute(w, templateData)
+
+	err = renderTimelineTemplate(w, templateData)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -331,42 +321,42 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	// Get username from path
 	username := mux.Vars(r)["username"]
 
-    // Check existence of user in database
-    data, err := UserRepo.GetUserByUsername(username)
-    if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), http.StatusNotFound)
-        return
-    }
-    userId := data.UserID
-    userEmail := data.Email
-    pageUser := &User{
-        UserID:   int(userId),
-        Username: username,
-        Email:    userEmail,
-    }
+	// Check existence of user in database
+	data, err := UserRepo.GetUserByUsername(username)
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	userId := data.UserID
+	userEmail := data.Email
+	pageUser := &User{
+		UserID:   int(userId),
+		Username: username,
+		Email:    userEmail,
+	}
 
-    page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-    if page < 1 {
-        page = 1
-    }
-    offset := (page - 1) * PER_PAGE
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	offset := (page - 1) * PER_PAGE
 
-    // Get messages data
-    messages, err := MessageRepo.GetUserTimeline(uint(userId), PER_PAGE, offset)
-    if err != nil {
-        log.Println(err.Error())
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	// Get messages data
+	messages, err := MessageRepo.GetUserTimeline(uint(userId), PER_PAGE, offset)
+	if err != nil {
+		log.Println(err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    totalMessages, err := MessageRepo.CountUserTimeline(uint(userId))
-    if err != nil {
-        log.Println(err)
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
+	totalMessages, err := MessageRepo.CountUserTimeline(uint(userId))
+	if err != nil {
+		log.Println(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
 
 	follows := false
 	if user != nil {
@@ -385,33 +375,20 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    templateData := TimelineData{
-        BaseTemplateData: BaseTemplateData{
-            User:    user, // Pass the current user (nil in this case)
-            Flashes: flashes,
-        },
-        Messages:    messages,
-        ProfileUser: pageUser,
-        Endpoint:    "user_timeline",
-        Follows:     follows,
-        Page:        page,
-        TotalPages:  totalPages,
-    }
-
-	template, err := template.New("layout.html").Funcs(template.FuncMap{
-		"gravatar":        gravatar_url,
-		"format_datetime": format_datetime,
-		"previous":            func(i int) int { return i - 1 },
-		"next":            func(i int) int { return i + 1 },
-	}).
-		ParseFiles("templates/layout.html", "templates/timeline.html")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	templateData := TimelineData{
+		BaseTemplateData: BaseTemplateData{
+			User:    user, // Pass the current user (nil in this case)
+			Flashes: flashes,
+		},
+		Messages:    messages,
+		ProfileUser: pageUser,
+		Endpoint:    "user_timeline",
+		Follows:     follows,
+		Page:        page,
+		TotalPages:  totalPages,
 	}
 
-	err = template.Execute(w, templateData)
+	err = renderTimelineTemplate(w, templateData)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -893,7 +870,7 @@ func main() {
 		if err != nil {
 			log.Fatal("Error loading .env file: ", err)
 		}
-    
+
 		dsn = os.Getenv("DATABASE_URL")
 		if dsn == "" {
 			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
@@ -928,7 +905,6 @@ func main() {
 	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
 	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
 	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
-
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
