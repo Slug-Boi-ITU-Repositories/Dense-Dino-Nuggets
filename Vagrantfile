@@ -59,6 +59,7 @@ Vagrant.configure("2") do |config|
       "POSTGRES_PORT" => ENV['POSTGRES_PORT'],
       "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
       "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'] || "/mnt/pgdata",
+      "MONITOR_IP" => ENV['MONITOR_IP'],
       
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
@@ -79,7 +80,7 @@ Vagrant.configure("2") do |config|
 
 
       # Check that env vars that are not default valued are actually set
-      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST"
+      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
           echo "ERROR: $var is not set. Please set it in your host environment."
@@ -123,6 +124,11 @@ Vagrant.configure("2") do |config|
 
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
 
+      # Install loki plugin if not exists
+      if ! sudo docker plugin ls | grep -q "loki"; then
+        sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+      fi
+  
       echo "Checking Docker Swarm status..."
       if ! sudo docker info | grep "Swarm: active"; then
         echo "Swarm not active. Initializing..."
@@ -200,14 +206,20 @@ Vagrant.configure("2") do |config|
         
         # Update the service with rolling update
         echo "Starting rolling update of minitwit service..."
-        sudo docker service update \
-          --image $DOCKER_IMAGE \
-          --force \
-          --update-parallelism 1 \
-          --update-delay 10s \
-          --update-order start-first \
-          --update-failure-action rollback \
-          ${STACK_NAME}_minitwit
+        # sudo docker service update \
+        #   --image $DOCKER_IMAGE \
+        #   --force \
+        #   --update-parallelism 1 \
+        #   --update-delay 10s \
+        #   --update-order start-first \
+        #   --update-failure-action rollback \
+        #   ${STACK_NAME}_minitwit
+
+        sudo docker stack deploy \
+          --compose-file /home/vagrant/docker-compose.processed.yml \
+          --with-registry-auth \
+          --prune \
+          $STACK_NAME
         
         # Monitor the update
         echo "Monitoring rolling update..."
@@ -308,8 +320,10 @@ SHELL
 
     monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
     monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
+    monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
     monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
+    monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
     monitor.vm.provision "shell", inline: <<-SHELL
       sudo apt-get update -y
