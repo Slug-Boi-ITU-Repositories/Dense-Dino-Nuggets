@@ -6,3 +6,8 @@ datasources:
     url: http://$PROMETHEUS_ADDRESS:9090
     isDefault: true
     editable: false
+  - name: Loki
+    type: loki
+    url: http://$LOKI_ADDRESS:3100
+    access: proxy
+    editable: false

@@ -62,6 +62,8 @@ services:
       - minitwit-network
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - PROMETHEUS_ADDRESS=prometheus
+      - LOKI_ADDRESS=loki
     restart: unless-stopped
     deploy:
       mode: replicated
@@ -73,6 +75,18 @@ services:
         reservations:
           cpus: '0.1'
           memory: 128M
+  loki:
+    image: grafana/loki:3.6.7
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      #- loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - minitwit-network
+    restart: unless-stopped
 
   minitwit:
     image: minitwitutmimage:latest
@@ -89,7 +103,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: service=minitwit,stack=local
     restart: unless-stopped
     deploy:
       mode: replicated

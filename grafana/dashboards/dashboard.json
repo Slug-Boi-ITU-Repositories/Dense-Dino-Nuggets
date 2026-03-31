@@ -748,6 +748,41 @@
       ],
       "title": "Avg Tweet Requests pr. second ",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "P8E80F9AEF21F6940"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "pluginVersion": "12.4.1",
+      "targets": [
+        {
+          "direction": "backward",
+          "editorMode": "builder",
+          "expr": "{service=\"minitwit\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Minitwit logs",
+      "type": "logs"
     }
   ],
   "preload": false,
@@ -765,6 +800,5 @@
   "timezone": "browser",
   "title": "Minitwit requests",
   "uid": "20e35418-d793-4dd9-b7fe-3dfe273e609f",
-  "version": 1,
-  "weekStart": ""
+  "overwrite": true
 }
