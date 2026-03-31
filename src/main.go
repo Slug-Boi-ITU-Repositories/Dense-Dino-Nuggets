@@ -556,7 +556,7 @@ func errString(err error) string {
 	return err.Error()
 }
 
-func register(w http.ResponseWriter, r *http.Request) {
+func register(w http.ResponseWriter, r *http.Request, userRepo *repository.UserRepository, sessionStore *sessions.CookieStore) {
 	user, err := getUser(r)
 	if err != nil {
 		log.Println(err.Error())
@@ -569,7 +569,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
+	session, err := sessionStore.Get(r, "app-session")
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -596,7 +596,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			err = errorGen("You have to enter a password")
 		} else if r.FormValue("password") != r.FormValue("password2") {
 			err = errorGen("The two passwords do not match")
-		} else if val, _ := UserRepo.GetUserIDByUsername(username); val != 0 {
+		} else if val, _ := userRepo.GetUserIDByUsername(username); val != 0 {
 			err = errorGen("The username is already taken")
 		} else {
 			pw_hash, err := generate_password_hash(r.FormValue("password"))
@@ -605,7 +605,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			err = UserRepo.RegisterUser(username, email, pw_hash)
+			err = userRepo.RegisterUser(username, email, pw_hash)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -833,7 +833,7 @@ func main() {
 		if err != nil {
 			log.Fatal("Error loading .env file: ", err)
 		}
-    
+
 		dsn = os.Getenv("DATABASE_URL")
 		if dsn == "" {
 			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
@@ -860,7 +860,8 @@ func main() {
 	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
 	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
 	router.Handle("/login", openapi.Logger(http.HandlerFunc(login), "Login")).Methods("GET", "POST")
-	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
+	//router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
+	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { register(w, r, UserRepo, store) }), "Register User")).Methods("GET", "POST")
 	router.Handle("/logout", openapi.Logger(http.HandlerFunc(logoutHandler), "Logout")).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
@@ -868,7 +869,6 @@ func main() {
 	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
 	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
 	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
-
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 

@@ -1,4 +1,4 @@
-package integration
+package main
 
 import (
 	"minitwit/src/model"
@@ -37,7 +37,7 @@ func registerUser(t *testing.T, client *http.Client, serverURL, username, email,
 	if err != nil {
 		t.Fatalf("Failed to register user: %v", err)
 	}
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status 200, got %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("Expected status 302, got %d", resp.StatusCode)
 	}
 }
