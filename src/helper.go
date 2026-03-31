@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
+func SetupTestDB(t *testing.T) *gorm.DB {
 	testDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("Failed to open in-memory database: %v", err)
@@ -26,7 +26,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return testDB
 }
 
-func registerUser(t *testing.T, client *http.Client, serverURL, username, email, password string) {
+func RegisterUser(t *testing.T, client *http.Client, serverURL, username, email, password string) {
 	data := url.Values{}
 	data.Set("username", username)
 	data.Set("password", password)
