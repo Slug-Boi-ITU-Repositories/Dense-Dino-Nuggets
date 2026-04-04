@@ -11,6 +11,12 @@ import (
 
 var jwtKey = []byte(os.Getenv("JWT_KEY"))
 
+type User struct {
+	UserID   int
+	Username string
+	Email    string
+}
+
 type Claims struct {
 	UserID   int    `json:"user_id"`
 	Username string `json:"username"`

@@ -29,22 +29,22 @@ import (
 	"gorm.io/gorm"
 )
 
-type User struct {
-	UserID   int
-	Username string
-	Email    string
-}
+// type User struct {
+// 	UserID   int
+// 	Username string
+// 	Email    string
+// }
 
 type Message struct {
 	MessageID int
-	Author    *User
+	Author    *authentication.User
 	Text      string
 	PubTime   time.Time
 	Flagged   int
 }
 
 type BaseTemplateData struct {
-	User    *User
+	User    *authentication.User
 	Flashes []interface{}
 }
 
@@ -68,7 +68,7 @@ type LoginData struct {
 type TimelineData struct {
 	BaseTemplateData
 	Messages    []model.Message
-	ProfileUser *User
+	ProfileUser *authentication.User
 	Follows     bool
 	Endpoint    string
 }
@@ -89,37 +89,32 @@ var FollowerRepo *repository.FollowerRepository
 // Get the logged in user from the jwt in cookie.
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
-func getUser(r *http.Request) (*User, error) {
-	cookie, err := r.Cookie("token")
-	if errors.Is(err, http.ErrNoCookie) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
-	}
-	claims, err := authentication.ParseToken(cookie.Value)
-	if err != nil {
-		return nil, err
-	}
-	user := &User{
-		UserID:   claims.UserID,
-		Username: claims.Username,
-		Email:    claims.Email,
-	}
-	return user, nil
-
-	// user_session, err := store.Get(r, "user-session")
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// if _, exists := user_session.Values["user"]; !exists {
+func getUser(r *http.Request) (*authentication.User, error) {
+	// cookie, err := r.Cookie("token")
+	// if errors.Is(err, http.ErrNoCookie) {
 	// 	return nil, nil
+	// } else if err != nil {
+	// 	return nil, err
 	// }
-	// user := &User{}
-	// err = json.Unmarshal(user_session.Values["user"].([]byte), user)
+	// claims, err := authentication.ParseToken(cookie.Value)
 	// if err != nil {
 	// 	return nil, err
+	// }
+	// user := &authentication.User{
+	// 	UserID:   claims.UserID,
+	// 	Username: claims.Username,
+	// 	Email:    claims.Email,
 	// }
 	// return user, nil
+	val := r.Context().Value("user")
+	if val == nil {
+		return nil, nil
+	}
+	user, ok := val.(*authentication.User)
+	if !ok {
+		return nil, fmt.Errorf("Unable to assert type for User")
+	}
+	return user, nil
 }
 
 func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
@@ -316,7 +311,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	userId := data.UserID
 	userEmail := data.Email
-	pageUser := &User{
+	pageUser := &authentication.User{
 		UserID:   int(userId),
 		Username: username,
 		Email:    userEmail,
@@ -455,13 +450,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// user_session, err := store.Get(r, "user-session")
-		// if err != nil {
-		// 	log.Println(err)
-		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-		// 	return
-		// }
-
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
@@ -507,12 +495,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 			}
 			http.SetCookie(w, tokenCookie)
 
-			// user := User{
-			// 	UserID:   int(modelUser.UserID),
-			// 	Username: modelUser.Username,
-			// 	Email:    modelUser.Email,
-			// }
-
 			session.AddFlash("You were logged in")
 			err = session.Save(r, w)
 			if err != nil {
@@ -521,19 +503,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			// userJson, err := json.Marshal(user)
-			// if err != nil {
-			// 	log.Println(err)
-			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-			// 	return
-			// }
-			// user_session.Values["user"] = userJson
-			// err = user_session.Save(r, w)
-			// if err != nil {
-			// 	log.Println(err)
-			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-			// 	return
-			// }
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
@@ -754,19 +723,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
 	}
-	// user_session, err := store.Get(r, "user-session")
-	// if err != nil {
-	// 	log.Println(err.Error())
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
-	// delete(user_session.Values, "user")
-	// err = user_session.Save(r, w)
-	// if err != nil {
-	// 	log.Println(err)
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 	return
-	// }
 
 	// Clear jwt from cookies
 	http.SetCookie(w, &http.Cookie{
@@ -912,18 +868,18 @@ func main() {
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
 	router.Handle("/jwt", openapi.Logger(http.HandlerFunc(TestJwt), "JWT Test")).Methods("GET")
-	router.Handle("/", openapi.Logger(http.HandlerFunc(timeline), "My timeline")).Methods("GET")
-	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
-	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
-	router.Handle("/login", openapi.Logger(http.HandlerFunc(login), "Login")).Methods("GET", "POST")
-	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
-	router.Handle("/logout", openapi.Logger(http.HandlerFunc(logoutHandler), "Logout")).Methods("GET")
+	router.Handle("/", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(timeline), "My timeline"))).Methods("GET")
+	router.Handle("/public", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(public), "Public timeline"))).Methods("GET")
+	router.Handle("/add_message", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet"))).Methods("POST")
+	router.Handle("/login", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(login), "Login"))).Methods("GET", "POST")
+	router.Handle("/register-user", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(register), "Register User"))).Methods("GET", "POST")
+	router.Handle("/logout", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(logoutHandler), "Logout"))).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
-	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
-	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
-	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
+	router.Handle("/{username}/follow", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following"))).Methods("GET")
+	router.Handle("/{username}/unfollow", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing"))).Methods("GET")
+	router.Handle("/{username}", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline"))).Methods("GET")
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
