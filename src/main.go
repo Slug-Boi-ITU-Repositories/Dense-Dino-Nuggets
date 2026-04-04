@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -87,23 +86,40 @@ var UserRepo *repository.UserRepository
 var MessageRepo *repository.MessageRepository
 var FollowerRepo *repository.FollowerRepository
 
-// Get the logged in user from the user session.
+// Get the logged in user from the jwt in cookie.
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
 func getUser(r *http.Request) (*User, error) {
-	user_session, err := store.Get(r, "user-session")
-	if err != nil {
-		return nil, err
-	}
-	if _, exists := user_session.Values["user"]; !exists {
+	cookie, err := r.Cookie("token")
+	if errors.Is(err, http.ErrNoCookie) {
 		return nil, nil
+	} else if err != nil {
+		return nil, err
 	}
-	user := &User{}
-	err = json.Unmarshal(user_session.Values["user"].([]byte), user)
+	claims, err := authentication.ParseToken(cookie.Value)
 	if err != nil {
 		return nil, err
+	}
+	user := &User{
+		UserID:   claims.UserID,
+		Username: claims.Username,
+		Email:    claims.Email,
 	}
 	return user, nil
+
+	// user_session, err := store.Get(r, "user-session")
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// if _, exists := user_session.Values["user"]; !exists {
+	// 	return nil, nil
+	// }
+	// user := &User{}
+	// err = json.Unmarshal(user_session.Values["user"].([]byte), user)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return user, nil
 }
 
 func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
@@ -483,11 +499,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			tokenCookie := &http.Cookie{
-				Name: "token",
-				Value: token,
-				Path: "/",
+				Name:     "token",
+				Value:    token,
+				Path:     "/",
 				HttpOnly: true,
-				MaxAge: 86400, // 1 day in seconds
+				MaxAge:   86400, // 1 day in seconds
 			}
 			http.SetCookie(w, tokenCookie)
 
@@ -738,19 +754,27 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
 	}
-	user_session, err := store.Get(r, "user-session")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	delete(user_session.Values, "user")
-	err = user_session.Save(r, w)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	// user_session, err := store.Get(r, "user-session")
+	// if err != nil {
+	// 	log.Println(err.Error())
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+	// delete(user_session.Values, "user")
+	// err = user_session.Save(r, w)
+	// if err != nil {
+	// 	log.Println(err)
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+	// 	return
+	// }
+
+	// Clear jwt from cookies
+	http.SetCookie(w, &http.Cookie{
+		Name:   "token",
+		Value:  "",
+		MaxAge: -1,
+		Path:   "/",
+	})
 
 	session, err := store.Get(r, "app-session")
 	if err != nil {
@@ -828,7 +852,7 @@ func TestJwt(w http.ResponseWriter, r *http.Request) {
 	claims, err := authentication.ParseToken(token[len(BEARER_SCHEMA):]) // Remove BEARER_SCHEMA from the rest of token
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid token: %s", err.Error()), http.StatusUnauthorized)
-		return		
+		return
 	}
 	fmt.Fprintf(w, "%#v", claims)
 }
@@ -864,7 +888,7 @@ func main() {
 		if err != nil {
 			log.Fatal("Error loading .env file: ", err)
 		}
-    
+
 		dsn = os.Getenv("DATABASE_URL")
 		if dsn == "" {
 			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
@@ -900,7 +924,6 @@ func main() {
 	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
 	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
 	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
-
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
