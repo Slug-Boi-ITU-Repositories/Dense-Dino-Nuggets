@@ -38,6 +38,9 @@ CONTAINER_NAME_PREFIX=minitwit
 POSTGRES_CPU_LIMIT=0.5
 POSTGRES_MEM_LIMIT=512M
 APP_REPLICAS=3
+
+# JWT signing key
+JWT_KEY=<Signing key>
 ```
 
 Currently the project is hosted as a github release as well as a dockerhub image.
