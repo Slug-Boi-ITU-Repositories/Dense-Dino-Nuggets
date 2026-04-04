@@ -18,7 +18,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-func createToken(userID int, username, email string) (string, error) {
+func CreateToken(userID int, username, email string) (string, error) {
 	claims := Claims{
 		UserID:   userID,
 		Username: username,
@@ -32,7 +32,7 @@ func createToken(userID int, username, email string) (string, error) {
 	return token.SignedString(jwtKey)
 }
 
-func parseToken(tokenStr string) (*Claims, error) {
+func ParseToken(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])

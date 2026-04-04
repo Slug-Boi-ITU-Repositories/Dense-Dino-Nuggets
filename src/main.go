@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"minitwit/src/authentication"
 	"minitwit/src/db"
 	"minitwit/src/model"
 	"minitwit/src/repository"
@@ -438,12 +439,12 @@ func login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user_session, err := store.Get(r, "user-session")
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		// user_session, err := store.Get(r, "user-session")
+		// if err != nil {
+		// 	log.Println(err)
+		// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+		// 	return
+		// }
 
 		username := r.FormValue("username")
 		password := r.FormValue("password")
@@ -475,12 +476,26 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			// Convert model.User to User for session
-			user := User{
-				UserID:   int(modelUser.UserID),
-				Username: modelUser.Username,
-				Email:    modelUser.Email,
+			// Create jwt token for user
+			token, err := authentication.CreateToken(int(modelUser.UserID), modelUser.Username, modelUser.Email)
+			if err != nil {
+				http.Error(w, "Couldn't create jwt", http.StatusInternalServerError)
+				return
 			}
+			tokenCookie := &http.Cookie{
+				Name: "token",
+				Value: token,
+				Path: "/",
+				HttpOnly: true,
+				MaxAge: 86400, // 1 day in seconds
+			}
+			http.SetCookie(w, tokenCookie)
+
+			// user := User{
+			// 	UserID:   int(modelUser.UserID),
+			// 	Username: modelUser.Username,
+			// 	Email:    modelUser.Email,
+			// }
 
 			session.AddFlash("You were logged in")
 			err = session.Save(r, w)
@@ -490,19 +505,19 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			userJson, err := json.Marshal(user)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			user_session.Values["user"] = userJson
-			err = user_session.Save(r, w)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+			// userJson, err := json.Marshal(user)
+			// if err != nil {
+			// 	log.Println(err)
+			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+			// 	return
+			// }
+			// user_session.Values["user"] = userJson
+			// err = user_session.Save(r, w)
+			// if err != nil {
+			// 	log.Println(err)
+			// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+			// 	return
+			// }
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
@@ -802,6 +817,22 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
+func TestJwt(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Header)
+	const BEARER_SCHEMA = "Bearer "
+	token := r.Header.Get("Authorization")
+	if token == "" {
+		http.Error(w, "Authorization header not found", http.StatusBadRequest)
+		return
+	}
+	claims, err := authentication.ParseToken(token[len(BEARER_SCHEMA):]) // Remove BEARER_SCHEMA from the rest of token
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Invalid token: %s", err.Error()), http.StatusUnauthorized)
+		return		
+	}
+	fmt.Fprintf(w, "%#v", claims)
+}
+
 func main() {
 	reg := prometheus.NewRegistry()
 	// reg.MustRegister(
@@ -856,6 +887,7 @@ func main() {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
+	router.Handle("/jwt", openapi.Logger(http.HandlerFunc(TestJwt), "JWT Test")).Methods("GET")
 	router.Handle("/", openapi.Logger(http.HandlerFunc(timeline), "My timeline")).Methods("GET")
 	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
 	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
