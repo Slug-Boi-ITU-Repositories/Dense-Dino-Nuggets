@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+// Check if cookies contain valid jwt. Otherwise redirect to login.
+// If valid jwt exists then adds user to request context with key "user".
 func RequiredAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("token")
@@ -30,6 +32,8 @@ func RequiredAuth(next http.Handler) http.Handler {
 	})
 }
 
+// Check if cookies contain valid jwt. Adds user to request context with key "user"
+// if valid jwt exists. Otherwise just executes next handler.
 func OptionalAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("token")

@@ -29,12 +29,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// type User struct {
-// 	UserID   int
-// 	Username string
-// 	Email    string
-// }
-
 type Message struct {
 	MessageID int
 	Author    *authentication.User
@@ -86,26 +80,10 @@ var UserRepo *repository.UserRepository
 var MessageRepo *repository.MessageRepository
 var FollowerRepo *repository.FollowerRepository
 
-// Get the logged in user from the jwt in cookie.
+// Get the logged in user from request context
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
 func getUser(r *http.Request) (*authentication.User, error) {
-	// cookie, err := r.Cookie("token")
-	// if errors.Is(err, http.ErrNoCookie) {
-	// 	return nil, nil
-	// } else if err != nil {
-	// 	return nil, err
-	// }
-	// claims, err := authentication.ParseToken(cookie.Value)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// user := &authentication.User{
-	// 	UserID:   claims.UserID,
-	// 	Username: claims.Username,
-	// 	Email:    claims.Email,
-	// }
-	// return user, nil
 	val := r.Context().Value("user")
 	if val == nil {
 		return nil, nil
@@ -718,7 +696,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: Add logout message
 	if user == nil {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
@@ -797,22 +774,6 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusFound)
 }
 
-func TestJwt(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Header)
-	const BEARER_SCHEMA = "Bearer "
-	token := r.Header.Get("Authorization")
-	if token == "" {
-		http.Error(w, "Authorization header not found", http.StatusBadRequest)
-		return
-	}
-	claims, err := authentication.ParseToken(token[len(BEARER_SCHEMA):]) // Remove BEARER_SCHEMA from the rest of token
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid token: %s", err.Error()), http.StatusUnauthorized)
-		return
-	}
-	fmt.Fprintf(w, "%#v", claims)
-}
-
 func main() {
 	reg := prometheus.NewRegistry()
 	// reg.MustRegister(
@@ -867,7 +828,6 @@ func main() {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	router.Handle("/jwt", openapi.Logger(http.HandlerFunc(TestJwt), "JWT Test")).Methods("GET")
 	router.Handle("/", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(timeline), "My timeline"))).Methods("GET")
 	router.Handle("/public", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(public), "Public timeline"))).Methods("GET")
 	router.Handle("/add_message", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet"))).Methods("POST")
