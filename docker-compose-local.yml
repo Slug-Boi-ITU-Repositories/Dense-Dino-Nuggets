@@ -90,18 +90,22 @@ services:
 
   minitwit:
     image: flakiator/minitwitutmimage:latest
-    # ports:
-    #   - "8080:8080"
-    # SWARM PORTS (uncomment for swarm deployment, comment out local ports above)
     ports:
-      - target: 8080
-        published: 8080
-        protocol: tcp
-        mode: ingress
+      - "8080:8080"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # SWARM PORTS (uncomment for swarm deployment, comment out local ports above)
+    # ports:
+    #   - target: 8080
+    #     published: 8080
+    #     protocol: tcp
+    #     mode: ingress
     networks:
       - minitwit-network
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/minitwit_db?sslmode=disable
+      - JWT_KEY=${JWT_KEY}
     depends_on:
       postgres:
         condition: service_healthy
