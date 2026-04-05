@@ -118,6 +118,20 @@ func add_message(http_session *http.Client, text string) (*http.Response, error)
 	return r, nil
 }
 
+func setTokenCookie(client *http.Client, token string) error {
+	u, err := url.Parse(BASE_URL)
+	if err != nil {
+		return err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{
+		{
+			Name:  "token",
+			Value: token,
+		},
+	})
+	return nil
+}
+
 // Lil' helper function for assertions
 func assertContains(t *testing.T, body, substr string) {
 	t.Helper()
@@ -366,4 +380,25 @@ func TestTimelines(t *testing.T) {
 	body = readBody(t, r)
 	assertContainsNot(t, body, "the message by foo")
 	assertContains(t, body, "the message by bar")
+}
+
+func TestAccessAuthorizedWithNoToken(t *testing.T) {
+	// Test that accessing an enpoint with no token results in error
+	client := newTestClient()
+	_, err := add_message(client, "test message 1")
+	if err == nil {
+		t.Error("Adding message didn't give an error")
+	}
+}
+
+func TestAccessAuthorizedWithExpiredToken(t *testing.T) {
+	client := newTestClient()
+	expiredToken := `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.` +
+		`eyJ1c2VyX2lkIjo3LCJ1c2VybmFtZSI6InRlc3QiLCJlbWFpbCI6InRlc3RAdGVzdCIsImV4cCI6MTc3NTM3MTgxMSwiaWF0IjoxNzc1MzY1NDExfQ.` +
+		`4tf8uOvZOWDuURu2v6oEibjpqa_A9JZdN23ts48ClmI`
+	setTokenCookie(client, expiredToken)
+	_, err := add_message(client, "test message 1")
+	if err == nil {
+		t.Error("Adding message didn't give an error")
+	}
 }
