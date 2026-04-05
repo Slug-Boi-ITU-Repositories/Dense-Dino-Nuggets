@@ -23,9 +23,9 @@ func RequiredAuth(next http.Handler) http.Handler {
 			return
 		}
 		user := &User{
-			UserID: claims.UserID,
+			UserID:   claims.UserID,
 			Username: claims.Username,
-			Email: claims.Email,
+			Email:    claims.Email,
 		}
 		ctx := context.WithValue(r.Context(), "user", user)
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -40,14 +40,14 @@ func OptionalAuth(next http.Handler) http.Handler {
 		if err == nil {
 			if claims, err := ParseToken(cookie.Value); err == nil {
 				user := &User{
-					UserID: claims.UserID,
+					UserID:   claims.UserID,
 					Username: claims.Username,
-					Email: claims.Email,
+					Email:    claims.Email,
 				}
 				ctx := context.WithValue(r.Context(), "user", user)
 				r = r.WithContext(ctx)
 			}
 		}
-		next.ServeHTTP(w,r)
+		next.ServeHTTP(w, r)
 	})
 }

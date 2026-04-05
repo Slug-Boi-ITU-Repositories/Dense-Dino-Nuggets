@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-
 func TestCreatingTokenDoesntError(t *testing.T) {
 	token, err := CreateToken(1, "test", "test@test.dk")
 	if err != nil {
@@ -32,9 +31,9 @@ func TestParsingTokenGivesCorrectClaims(t *testing.T) {
 
 func TestParsingTokenGivesErrorWhenAlgIsWrong(t *testing.T) {
 	// Token signed with RS256
-	incorrectToken := `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.`+
-					  `eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6InRlc3QiLCJlbWFpbCI6InRlc3RAdGVzdC5kayIsImV4cCI6MTUxNjIzOTEyMiwiaWF0IjoxNTE2MjM5MDIyfQ.`+
-					  `AmvI_M-MrQln7MuKX45NuoG7zKxdHLq-pYT80DsvUqn8RaREzp1ZQDFXLQ5hePsQ1l3us3CHmgZY1ptzknczU_6WaRUCqeva0GabG4wFXjEdzUUOmFV3qxvJgTvP_Wc-4eVM0kPyqqFyz_vAPT_8HBpTEh1NILHnwxx_8gkttNZHuPsE9vrqGP1V__iujfaip6R-_czw9o12vHRsoI7ME432gBCvKjLyzT_cQlsQJ3Bc68cIUAfsfSX-ZMuhWvKywnjr8kQX8Bwr4jt42Kc_2OLo0m0bBHxCYTgGip5TyVtxe5FcJw_L0kE_tWAJ30AiIBiSfOExEPpYo6fXb03QSA`
+	incorrectToken := `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.` +
+		`eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6InRlc3QiLCJlbWFpbCI6InRlc3RAdGVzdC5kayIsImV4cCI6MTUxNjIzOTEyMiwiaWF0IjoxNTE2MjM5MDIyfQ.` +
+		`AmvI_M-MrQln7MuKX45NuoG7zKxdHLq-pYT80DsvUqn8RaREzp1ZQDFXLQ5hePsQ1l3us3CHmgZY1ptzknczU_6WaRUCqeva0GabG4wFXjEdzUUOmFV3qxvJgTvP_Wc-4eVM0kPyqqFyz_vAPT_8HBpTEh1NILHnwxx_8gkttNZHuPsE9vrqGP1V__iujfaip6R-_czw9o12vHRsoI7ME432gBCvKjLyzT_cQlsQJ3Bc68cIUAfsfSX-ZMuhWvKywnjr8kQX8Bwr4jt42Kc_2OLo0m0bBHxCYTgGip5TyVtxe5FcJw_L0kE_tWAJ30AiIBiSfOExEPpYo6fXb03QSA`
 	claims, err := ParseToken(incorrectToken)
 	if err == nil {
 		t.Error("Parsing invalid token did not result in error")
