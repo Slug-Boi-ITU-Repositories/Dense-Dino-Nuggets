@@ -703,10 +703,11 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Clear jwt from cookies
 	http.SetCookie(w, &http.Cookie{
-		Name:   "token",
-		Value:  "",
-		MaxAge: -1,
-		Path:   "/",
+		Name:     "token",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		HttpOnly: true,
 	})
 
 	session, err := store.Get(r, "app-session")
