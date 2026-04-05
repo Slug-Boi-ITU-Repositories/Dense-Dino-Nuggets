@@ -18,7 +18,7 @@ func RequiredAuth(next http.Handler) http.Handler {
 		}
 		claims, err := ParseToken(cookie.Value)
 		if err != nil {
-			log.Println("%s %s Unauthorized Request (invalid token): %s", r.Method, r.RequestURI, err.Error())
+			log.Printf("%s %s Unauthorized Request (invalid token): %s", r.Method, r.RequestURI, err.Error())
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
