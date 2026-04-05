@@ -38,7 +38,7 @@ func TestParsingTokenGivesErrorWhenAlgIsWrong(t *testing.T) {
 	if err == nil {
 		t.Error("Parsing invalid token did not result in error")
 	}
-	if !strings.Contains(err.Error(), "Unexpected signing method") {
+	if !strings.Contains(err.Error(), "unexpected signing method") {
 		t.Errorf("Incorrect error from parsing token. Error given: %s", err.Error())
 	}
 	if claims != nil {

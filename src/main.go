@@ -84,13 +84,13 @@ var FollowerRepo *repository.FollowerRepository
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
 func getUser(r *http.Request) (*authentication.User, error) {
-	val := r.Context().Value("user")
+	val := r.Context().Value(authentication.UserKey)
 	if val == nil {
 		return nil, nil
 	}
 	user, ok := val.(*authentication.User)
 	if !ok {
-		return nil, fmt.Errorf("Unable to assert type for User")
+		return nil, fmt.Errorf("unable to assert type for User")
 	}
 	return user, nil
 }

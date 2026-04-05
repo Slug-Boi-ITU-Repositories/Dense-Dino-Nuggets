@@ -6,6 +6,9 @@ import (
 	"net/http"
 )
 
+type contextKey string
+const UserKey contextKey = "user"
+
 // Check if cookies contain valid jwt. Otherwise redirect to login.
 // If valid jwt exists then adds user to request context with key "user".
 func RequiredAuth(next http.Handler) http.Handler {
@@ -27,7 +30,7 @@ func RequiredAuth(next http.Handler) http.Handler {
 			Username: claims.Username,
 			Email:    claims.Email,
 		}
-		ctx := context.WithValue(r.Context(), "user", user)
+		ctx := context.WithValue(r.Context(), UserKey, user)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -44,7 +47,7 @@ func OptionalAuth(next http.Handler) http.Handler {
 					Username: claims.Username,
 					Email:    claims.Email,
 				}
-				ctx := context.WithValue(r.Context(), "user", user)
+				ctx := context.WithValue(r.Context(), UserKey, user)
 				r = r.WithContext(ctx)
 			}
 		}

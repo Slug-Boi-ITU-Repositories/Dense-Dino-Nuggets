@@ -396,8 +396,11 @@ func TestAccessAuthorizedWithExpiredToken(t *testing.T) {
 	expiredToken := `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.` +
 		`eyJ1c2VyX2lkIjo3LCJ1c2VybmFtZSI6InRlc3QiLCJlbWFpbCI6InRlc3RAdGVzdCIsImV4cCI6MTc3NTM3MTgxMSwiaWF0IjoxNzc1MzY1NDExfQ.` +
 		`4tf8uOvZOWDuURu2v6oEibjpqa_A9JZdN23ts48ClmI`
-	setTokenCookie(client, expiredToken)
-	_, err := add_message(client, "test message 1")
+	err := setTokenCookie(client, expiredToken)
+	if err != nil {
+		t.Errorf("Unable to set token cookie: %v", err)
+	}
+	_, err = add_message(client, "test message 1")
 	if err == nil {
 		t.Error("Adding message didn't give an error")
 	}
