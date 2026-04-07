@@ -20,7 +20,7 @@ source .env
 set +a
 ```
 
-You need an env file file that includes these vars or you need to have them exported in your environment if you are using a .env file you can export them to your env by using the following command
+You need an env file file that includes these vars or you need to have them exported in your environment if you are using a .env file you can export them to your env by using the following command. The `JWT_KEY` is what is used to sign and validate the JWT. This is key should be kept secret and should be a long, hard to guess key. All instances of the server need to have the same key otherwise validation of the JWT issued by a different server will fail.
 
 ```bash
 # Database Configuration
