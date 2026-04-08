@@ -1,5 +1,5 @@
 # Authentication
-Minitwit uses JWT to authenticate users without relying to storing state on the server. This saves us a round trip to the database. 
+Minitwit uses JWT to authenticate users without relying on storing state on the server. This saves us a round trip to the database. 
 
 ## Middleware
 The system uses two different authentication middlewares depending on if authentication is required to access the endpoint.  
