@@ -5,15 +5,15 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: minitwit_db
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT}:5432"
     networks:
       - minitwit-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U minitwit_user -d minitwit_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
 
   minitwit:
-    image: flakiator/minitwitutmimage:latest
+    image: minitwitutmimage:latest
     # ports:
     #   - "8080:8080"
     # SWARM PORTS (uncomment for swarm deployment, comment out local ports above)
@@ -101,7 +101,7 @@ services:
     networks:
       - minitwit-network
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/minitwit_db?sslmode=disable
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy

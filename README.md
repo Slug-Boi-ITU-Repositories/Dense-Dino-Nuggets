@@ -15,7 +15,7 @@ DATABASE_URL="<psql-dsn-string>"
 Full env setup for docker-compose file. Can also be deployed as a stack on a swarm
 
 ```bash
-set -a                                                                                                               9m 18s
+set -a
 source .env
 set +a
 ```
@@ -39,6 +39,30 @@ POSTGRES_CPU_LIMIT=0.5
 POSTGRES_MEM_LIMIT=512M
 APP_REPLICAS=3
 ```
+
+### Local Docker Compose workflow
+
+The following setup is used for local development from the project root. Remember to setup a .env file as specified in the [Environment setup] section.
+Load the environment variables before building:
+
+```bash
+source .env
+docker build -t minitwitutmimage .
+```
+
+Start the local stack:
+
+```bash
+docker compose -f docker-compose-local.yml up -d
+```
+
+Stop the local stack:
+
+```bash
+docker compose -f docker-compose-local.yml down -v
+```
+
+The `-v` flag also removes volumes. Currently there is a single volume which persists database data even when postgres container is stopped.
 
 Currently the project is hosted as a github release as well as a dockerhub image.
 
