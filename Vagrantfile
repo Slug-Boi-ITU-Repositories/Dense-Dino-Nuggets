@@ -249,7 +249,10 @@ SHELL
     }, inline: <<-SHELL
       set -euo pipefail
 
-      # TODO: Require swarm manager ip env var
+      if [ -z "$SWARM_MANAGER_IP" ]; then
+          echo "ERROR: $var is not set. Please set it in your host environment."
+          exit 1
+        fi
 
       sudo apt-get update -y
       sudo apt-get install -y ca-certificates curl gnupg lsb-release
