@@ -12,7 +12,7 @@ The system uses two different authentication middlewares depending on if authent
 - Username
 - Email
 - Issue time
-- Expirery time (1 day after issue time)
+- Expiry time (1 day after issue time)
 
 **Hashing algorithm**: HS256 (HMAC with SHA-256)  
 We use symmetric signing system since only the minitwit servers need to validate the JWT, and symmetric cryptography is faster.
