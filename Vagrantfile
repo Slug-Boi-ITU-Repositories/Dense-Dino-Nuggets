@@ -1,6 +1,28 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# Load .env into process environment so `vagrant up/provision` works without
+# manually exporting variables. Existing exported vars take precedence.
+env_file = File.expand_path('.env', __dir__)
+if File.file?(env_file)
+  File.readlines(env_file, chomp: true).each do |line|
+    line = line.strip
+    next if line.empty? || line.start_with?('#')
+
+    line = line.sub(/^export\s+/, '')
+    key, value = line.split('=', 2)
+    next if key.nil? || value.nil?
+
+    key = key.strip
+    value = value.strip
+    if (value.start_with?('"') && value.end_with?('"')) || (value.start_with?("'") && value.end_with?("'"))
+      value = value[1..-2]
+    end
+
+    ENV[key] = value if ENV[key].nil? || ENV[key].empty?
+  end
+end
+
 Vagrant.configure("2") do |config|
 
   config.vm.define "minitwit" do |server|
@@ -49,7 +71,7 @@ Vagrant.configure("2") do |config|
 
     # Provisioning
     server.vm.provision "shell", env: {
-      "USERNAME" => ENV['DOCKER_USERNAME'] || "flakiator",
+      "USERNAME" => ENV['DOCKER_USERNAME'] || ENV['USERNAME'] || "flakiator",
       # Database credentials - NO DEFAULTS (must be set in host environment)
       "CONTAINER_NAME_PREFIX" => ENV['CONTAINER_NAME_PREFIX'],
       "POSTGRES_USER" => ENV['POSTGRES_USER'],
@@ -71,10 +93,14 @@ Vagrant.configure("2") do |config|
       set -euo pipefail
 
       VOLUME_DEVICE="/dev/sda"
-      IMAGE_NAME="minitwitimage"
-      # For UTM use the dockerhub image for arm64
-      #IMAGE_NAME="minitwitutmimage"
+      ARCH="$(uname -m)"
+      if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        IMAGE_NAME="minitwitutmimage"
+      else
+        IMAGE_NAME="minitwitimage"
+      fi
       DOCKER_IMAGE="$USERNAME/$IMAGE_NAME"
+      export DOCKER_USERNAME="${DOCKER_USERNAME:-$USERNAME}"
       COMPOSE_FILE="docker-compose.yml"
       STACK_NAME="minitwit"
 
@@ -83,7 +109,7 @@ Vagrant.configure("2") do |config|
       REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
-          echo "ERROR: $var is not set. Please set it in your host environment."
+          echo "ERROR: $var is not set. Please set it in .env or your host environment."
           exit 1
         fi
       done
@@ -124,9 +150,16 @@ Vagrant.configure("2") do |config|
 
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin pgloader
 
-      # Install loki plugin if not exists
-      if ! sudo docker plugin ls | grep -q "loki"; then
-        sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+      # Install loki plugin if possible (non-fatal on platforms where plugin is unavailable/broken)
+      if ! sudo docker plugin ls --format '{{.Name}}' | grep -q '^loki$'; then
+        if ! sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions; then
+          echo "WARNING: Loki docker logging plugin could not be installed. Falling back to default json-file logging."
+        fi
+      fi
+
+      # Ensure plugin is enabled when present. If this fails, deployment will continue without loki driver.
+      if sudo docker plugin inspect loki >/dev/null 2>&1; then
+        sudo docker plugin enable loki >/dev/null 2>&1 || true
       fi
   
       echo "Checking Docker Swarm status..."
@@ -193,6 +226,25 @@ Vagrant.configure("2") do |config|
 
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
+
+      # Force app image to match architecture-specific image selection.
+      sed -i "s#/minitwitimage:latest#/$IMAGE_NAME:latest#g" /home/vagrant/docker-compose.processed.yml
+
+      # Some platforms (notably UTM/arm64) may have a present but unusable loki plugin.
+      # If loki is not enabled, remove only minitwit's logging block so stack deploy can proceed.
+      LOKI_PLUGIN_ENABLED="$(sudo docker plugin inspect loki --format '{{.Enabled}}' 2>/dev/null || echo false)"
+      if [ "$LOKI_PLUGIN_ENABLED" != "true" ]; then
+        echo "Loki plugin is not enabled/healthy. Removing loki logging config from minitwit service for this deployment."
+        awk '
+          /^  minitwit:/ {in_minitwit=1}
+          /^  [a-zA-Z0-9_-]+:/ && $0 !~ /^  minitwit:/ {in_minitwit=0}
+          in_minitwit && /^    logging:/ {skip_logging=1; next}
+          skip_logging && /^    [a-zA-Z0-9_-]+:/ {skip_logging=0}
+          skip_logging {next}
+          {print}
+        ' /home/vagrant/docker-compose.processed.yml > /home/vagrant/docker-compose.processed.tmp.yml
+        mv /home/vagrant/docker-compose.processed.tmp.yml /home/vagrant/docker-compose.processed.yml
+      fi
 
       # Check if stack exists
       cd /home/vagrant
