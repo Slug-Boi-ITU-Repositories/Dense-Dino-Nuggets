@@ -56,6 +56,7 @@ Vagrant.configure("2") do |config|
       "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
       "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'] || "/mnt/pgdata",
       "MONITOR_IP" => ENV['MONITOR_IP'],
+      "MONITOR_PUB_KEY" => ENV['MONITOR_PUB_KEY'],
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
       "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
       "APP_REPLICAS" => ENV['APP_REPLICAS'] || "2",
@@ -70,7 +71,7 @@ Vagrant.configure("2") do |config|
       COMPOSE_FILE="docker-compose.yml"
       STACK_NAME="minitwit"
 
-      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
+      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP MONITOR_PUB_KEY"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
           echo "ERROR: $var is not set. Please set it in your host environment."
@@ -104,6 +105,14 @@ Vagrant.configure("2") do |config|
       # Install Loki logging plugin
       if ! sudo docker plugin ls | grep -q "loki"; then
         sudo docker plugin install grafana/loki-docker-driver:latest --alias loki --grant-all-permissions
+      fi
+
+      echo "Checking ssh keys"
+      if ! grep "${MONITOR_PUB_KEY}" /root/.ssh/authorized_keys; then 
+        echo "Adding pub key"
+        echo "${MONITOR_PUB_KEY}" >> /root/.ssh/authorized_keys 
+      else 
+        echo "Pub key already added to system" 
       fi
 
       # --- SWARM SETUP (MANAGER) ---
