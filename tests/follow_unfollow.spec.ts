@@ -49,8 +49,13 @@ test('user follow and unfollow testuser', async ({ page }) => {
   const followStatus2 = page.locator('div.followstatus');
   await expect(followStatus2).toContainText('You are currently following this user.');
 
-  // TODO Add test that user shows up in my "timeline"
+  // Assert that user shows up in my "timeline"
+  await page.goto('http://server:8080');
 
+  const messages = page.locator('ul.messages li');
+  await expect(messages.first()).toBeVisible();
+  await expect(page.locator('ul.messages')).toContainText('testuser');
+  await expect(page.locator('ul.messages')).toContainText('Hello world!');
 
   // Unfollow testuser
   await page.goto('http://server:8080/testuser');
