@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test('public timeline loads', async ({ page }) => {
-  await page.goto('http://localhost:8080/public');
+  await page.goto('http://server:8080/public');
 
   // Check the heading exists
   await expect(page.getByRole('heading', { level: 2 })).toBeVisible();

@@ -25,21 +25,21 @@ import (
 )
 
 type Ddn struct {
-    Src *dagger.Directory
+	Src *dagger.Directory
 }
 
 func New(
-    // +defaultPath="/"
-    src *dagger.Directory,
+	// +defaultPath="/"
+	src *dagger.Directory,
 ) *Ddn {
-    return &Ddn{
-        Src: src,
-    }
+	return &Ddn{
+		Src: src,
+	}
 }
 
 func (m *Ddn) WithSource(src *dagger.Directory) *Ddn {
-    m.Src = src
-    return m
+	m.Src = src
+	return m
 }
 
 // func (m *Ddn) src(ctx context.Context) *dagger.Directory {
@@ -93,13 +93,13 @@ func (m *Ddn) Build(src *dagger.Directory) *dagger.Directory {
 }
 
 func (m *Ddn) PostgresService() *dagger.Service {
-    return dag.Container().
-        From("postgres:15-alpine").
-        WithEnvVariable("POSTGRES_USER", "testuser").
-        WithEnvVariable("POSTGRES_PASSWORD", "testpass").
-        WithEnvVariable("POSTGRES_DB", "testdb").
-        WithExposedPort(5432).
-        AsService()
+	return dag.Container().
+		From("postgres:15-alpine").
+		WithEnvVariable("POSTGRES_USER", "testuser").
+		WithEnvVariable("POSTGRES_PASSWORD", "testpass").
+		WithEnvVariable("POSTGRES_DB", "testdb").
+		WithExposedPort(5432).
+		AsService()
 }
 
 func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
@@ -109,18 +109,18 @@ func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
 
 	return src.DockerBuild().
 		WithServiceBinding("postgres", postgres).
-        WithEnvVariable("DATABASE_URL", dsn).
+		WithEnvVariable("DATABASE_URL", dsn).
 		AsService(dagger.ContainerAsServiceOpts{Args: []string{"./main"}})
 }
 
 // +check
 func (m *Ddn) Test(ctx context.Context) (string, error) {
-    server := m.ServerService(m.Src)
-    return m.BuildEnv(m.Src).
-        WithWorkdir("./src").
-        WithServiceBinding("localhost", server).
-        WithExec([]string{"go", "test", "./..."}).
-        Stdout(ctx)
+	server := m.ServerService(m.Src)
+	return m.BuildEnv(m.Src).
+		WithWorkdir("./src").
+		WithServiceBinding("localhost", server).
+		WithExec([]string{"go", "test", "./..."}).
+		Stdout(ctx)
 }
 
 // +check
@@ -205,4 +205,30 @@ func (m *Ddn) Quality(ctx context.Context) error {
 	// Wait for all checks to complete
 	// If any checks fail, the error will be returned
 	return eg.Wait()
+}
+
+func (m *Ddn) ServerServiceExposedLocalhost(src *dagger.Directory) *dagger.Service {
+	postgres := m.PostgresService()
+
+	dsn := "postgresql://testuser:testpass@postgres:5432/testdb?sslmode=disable"
+
+	return src.DockerBuild().
+		WithServiceBinding("postgres", postgres).
+		WithEnvVariable("DATABASE_URL", dsn).
+		WithExposedPort(8080).
+		AsService(dagger.ContainerAsServiceOpts{
+			Args: []string{"./main"},
+		})
+}
+
+func (m *Ddn) E2E(ctx context.Context) (string, error) {
+	server := m.ServerServiceExposedLocalhost(m.Src)
+	return dag.Container().
+		From("mcr.microsoft.com/playwright:v1.59.1-jammy").
+		WithDirectory("/app", m.Src).
+		WithWorkdir("/app").
+		WithServiceBinding("server", server).
+		WithExec([]string{"npm", "ci"}).
+		WithExec([]string{"npx", "playwright", "test"}).
+		Stdout(ctx)
 }
