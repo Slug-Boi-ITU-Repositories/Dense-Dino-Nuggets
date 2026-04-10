@@ -36,7 +36,7 @@ Vagrant.configure("2") do |config|
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
       override.nfs.functional = false
       override.vm.allowed_synced_folder_types = :rsync
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
+      override.ssh.private_key_path = '~/.ssh/new_testing'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
     server.vm.provision "shell", env: {
-      "USERNAME" => ENV['DOCKER_USERNAME'] || "flakiator",
+      "DOCKER_USERNAME" => ENV['DOCKER_USERNAME'] || "flakiator",
       "CONTAINER_NAME_PREFIX" => ENV['CONTAINER_NAME_PREFIX'],
       "POSTGRES_USER" => ENV['POSTGRES_USER'],
       "POSTGRES_PASSWORD" => ENV['POSTGRES_PASSWORD'],
@@ -66,7 +66,7 @@ Vagrant.configure("2") do |config|
 
       VOLUME_DEVICE="/dev/sda"
       IMAGE_NAME="minitwitimage"
-      DOCKER_IMAGE="$USERNAME/$IMAGE_NAME"
+      DOCKER_IMAGE="$DOCKER_USERNAME/$IMAGE_NAME"
       COMPOSE_FILE="docker-compose.yml"
       STACK_NAME="minitwit"
 
@@ -110,17 +110,18 @@ Vagrant.configure("2") do |config|
       echo "Checking Docker Swarm status..."
       SWARM_IP=$(hostname -I | awk '{print $1}')
 
-      if ! sudo docker info | grep -q "Swarm: active"; then
+      if ! sudo docker info | grep "Swarm: active"; then
         echo "Swarm not active. Initializing as manager..."
         sudo docker swarm init --advertise-addr $SWARM_IP
+      elif sudo docker info | grep -q "Is Manager: false"; then
+        echo "Node is a worker in another swarm. Leaving and reinitializing as manager..."
+        sudo docker swarm leave --force
+        sudo docker swarm init --advertise-addr $SWARM_IP
       else
-        echo "Swarm is active"
-        if ! sudo docker node ls 2>/dev/null | grep -q "Leader"; then
-          echo "Not a leader. Reinitializing as manager..."
-          sudo docker swarm leave --force
-          sudo docker swarm init --advertise-addr $SWARM_IP
-        fi
+        echo "Already an active swarm manager, skipping init"
       fi
+
+      
 
       # Label this node as the app node for placement constraints
       sudo docker node update --label-add role=app $(sudo docker node ls --format '{{.ID}}' --filter role=manager) || true
@@ -243,6 +244,7 @@ SHELL
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
     monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
+    monitor.vm.provision "file", source: "~/.ssh/id_monitor", destination: "/root/.ssh/id_monitor"
 
     monitor.vm.provision "shell", env: {
       "SWARM_MANAGER_IP" => ENV['SWARM_MANAGER_IP'],
@@ -285,7 +287,7 @@ SHELL
       # Read the join token written by the minitwit (manager) node
       SWARM_WORKER_TOKEN=$(ssh root@$SWARM_MANAGER_IP "docker swarm join-token worker -q")
       if [ -n "$SWARM_WORKER_TOKEN" ] && [ -n "$SWARM_MANAGER_IP" ]; then
-        if ! sudo docker info | grep -q "Swarm: active"; then
+        if ! sudo docker info | grep "Swarm: active"; then
           echo "Joining swarm as worker..."
           sudo docker swarm join --token $SWARM_WORKER_TOKEN $SWARM_MANAGER_IP:2377
         else
