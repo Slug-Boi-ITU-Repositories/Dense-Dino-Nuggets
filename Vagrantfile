@@ -284,6 +284,8 @@ SHELL
       sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
       # --- SWARM SETUP (WORKER) ---
+      eval "$(ssh-agent -s)"
+      ssh-add /root/.ssh/id_minitwit
       # Read the join token written by the minitwit (manager) node
       SWARM_WORKER_TOKEN=$(ssh root@$SWARM_MANAGER_IP "docker swarm join-token worker -q")
       if [ -n "$SWARM_WORKER_TOKEN" ] && [ -n "$SWARM_MANAGER_IP" ]; then
