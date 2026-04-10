@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('user follow and unfollow testuser', async ({ page }) => {
   // Part 1 - register user since we do not have any user to log in with
-  await page.goto('http://localhost:8080/register-user');
+  await page.goto('http://server:8080/register-user');
 
   // User data
   const timestamp = Date.now();
@@ -26,7 +26,7 @@ test('user follow and unfollow testuser', async ({ page }) => {
   }
 
   // Part 2 - Log in with new user
-  await page.goto('http://localhost:8080/login');
+  await page.goto('http://server:8080/login');
 
   await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', password);
@@ -37,7 +37,7 @@ test('user follow and unfollow testuser', async ({ page }) => {
 
   // Part 3 - Follow and Unfollow testuser
   // Follow testuser
-  await page.goto('http://localhost:8080/testuser');
+  await page.goto('http://server:8080/testuser');
 
   const followStatus1 = page.locator('div.followstatus');
   await expect(followStatus1).toContainText('You are not yet following this user.');
@@ -51,7 +51,10 @@ test('user follow and unfollow testuser', async ({ page }) => {
 
   // TODO Add test that user shows up in my "timeline"
 
+
   // Unfollow testuser
+  await page.goto('http://server:8080/testuser');
+
   const unfollowLink = page.locator('a.unfollow');
   await expect(unfollowLink).toBeVisible();
   await unfollowLink.click();

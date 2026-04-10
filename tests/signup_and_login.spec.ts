@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('user can sign up successfully and log in', async ({ page }) => {
   // Part 1 - register user
-  await page.goto('http://localhost:8080/register-user');
+  await page.goto('http://server:8080/register-user');
 
   // User data
   const timestamp = Date.now();
@@ -26,7 +26,7 @@ if (await error.isVisible()) {
 }
 
 // Part 2 - Log in with new user
-await page.goto('http://localhost:8080/login');
+await page.goto('http://server:8080/login');
 
 await page.fill('input[name="username"]', username);
 await page.fill('input[name="password"]', password);
@@ -36,7 +36,7 @@ const loginError = page.locator('div.error');
 await expect(loginError).toHaveCount(0);
 
 // After log in we excpect to be on the user timeline
-await expect(page).toHaveURL('http://localhost:8080');
+await expect(page).toHaveURL('http://server:8080');
 await expect(page.locator('h2')).toHaveText('My Timeline');
 await expect(page.locator('div.twitbox')).toContainText(`What's on your mind ${username}?`);
 const messages = page.locator('ul.messages');
