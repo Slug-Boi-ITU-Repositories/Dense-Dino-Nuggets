@@ -41,7 +41,7 @@ My Timeline {{end}} {{end}} {{define "body"}}
     <li><em>There's no message so far.</em></li>
     {{end}}
 </ul>
-<div class="pagination">
+<div class="pagination" style="text-align: center;">
   {{if gt .Page 1}}
     <a href="?page={{.Page | previous}}">Previous</a>
   {{end}}
