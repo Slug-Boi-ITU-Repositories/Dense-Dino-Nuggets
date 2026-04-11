@@ -64,8 +64,107 @@ services:
           cpus: '0.2'
           memory: 128M
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - /root/prometheus_data/:/prometheus/data/ 
+      - /root/prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - target: 9090
+        published: 9090
+    networks:
+      - minitwit-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      placement:
+        constraints: 
+          - node.hostname == monitoring
+
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - /root/grafana_data:/var/lib/grafana/
+      - /root/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - /root/grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+    ports:
+      - target: 3000
+        published: 3000
+    environment:
+      - PROMETHEUS_ADDRESS=prometheus
+      - LOKI_ADDRESS=loki
+    networks:
+      - minitwit-network
+    depends_on:
+      - loki
+      - prometheus
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      placement:
+        constraints: 
+          - node.hostname == monitoring
+
+  loki:
+    image: grafana/loki:3.6.7
+    volumes:
+      - /root/loki/loki-config.yml:/etc/loki/local-config.yaml
+      - loki_data:/loki  # Persist logs across restarts
+    ports:
+      - target: 3100 # Exposed so swarm nodes can push logs to this droplet
+        published: 3100
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - minitwit-network
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      placement:
+        constraints: 
+          - node.hostname == monitoring
+
 volumes:
   postgres_data:
+    driver: local
+  loki_data:
     driver: local
       
 networks:
