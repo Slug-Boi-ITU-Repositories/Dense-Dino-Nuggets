@@ -42,6 +42,7 @@ Vagrant.configure("2") do |config|
       provider.size = "s-1vcpu-1gb"
       provider.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
       provider.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
+      provider.vm.provision "file", source: ".ssh/id_monitor", destination: "/tmp/id_monitor"
     end
 
     server.vm.network "forwarded_port", guest: 8080, host: 8080
@@ -79,6 +80,16 @@ Vagrant.configure("2") do |config|
           exit 1
         fi
       done
+
+      if [ -f /tmp/id_monitor ] && [ ! -f /root/.ssh/id_monitor ]; then
+        cp /tmp/id_monitor /root/.ssh/id_monitor
+        chmod 600 /root/.ssh/id_monitor
+      fi
+
+      if [ ! -f /root/.ssh/id_monitor ]; then
+        echo "private ssh key not copied or included please ensure the key is copied onto the machine before running again" 
+        exit 1
+      fi 
 
       sudo apt-get update -y
       sudo apt-get install -y ca-certificates curl gnupg lsb-release
@@ -146,9 +157,6 @@ Vagrant.configure("2") do |config|
 
         # Setup ssh-agent and keys
         eval "$(ssh-agent -s)"
-        if [ ! -f ~/.ssh/id_monitor ]; then
-          ssh-keygen -t ed25519 -f ~/.ssh/id_monitor -N "" -C "monitor"
-        fi  
         ssh-add /root/.ssh/id_monitor
 
         # Setup monitor machine using ssh
@@ -167,7 +175,7 @@ Vagrant.configure("2") do |config|
         echo "Monitor already added using saved ip and node id and moving on" 
       fi
 
-      if [ -n "$MONITORING_NODE_ID" ] && ! sudo docker node inspect $MONITORING_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
+      if [ -n "$MONITOR_NODE_ID" ] && ! sudo docker node inspect $MONITOR_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
         echo "Applying role=monitoring label to this node (ID: $MONITOR_NODE_ID)..."
         docker node update --label-add role=monitoring $MONITOR_NODE_ID
       fi
