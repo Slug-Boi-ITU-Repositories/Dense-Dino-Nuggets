@@ -41,6 +41,7 @@ Vagrant.configure("2") do |config|
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
       provider.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
+      provider.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
     end
 
     server.vm.network "forwarded_port", guest: 8080, host: 8080
@@ -91,9 +92,7 @@ Vagrant.configure("2") do |config|
         if [ "$CODENAME" = "bookworm" ]; then
           CODENAME="bullseye"
         fi
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
         sudo apt-get update -y
         echo "Docker repository configured"
       else
@@ -130,14 +129,48 @@ Vagrant.configure("2") do |config|
         echo "Already an active swarm manager, skipping init"
       fi
 
-      
-
       # Label this node as the app node for placement constraints
-      sudo docker node update --label-add role=app $(sudo docker node ls --format '{{.ID}}' --filter role=manager) || true
+      if ! sudo docker node inspect $(sudo docker node ls --format '{{.ID}}' --filter role=manager) --format '{{.Spec.Labels}}' | grep -q "role=app"; then
+        sudo docker node update --label-add role=app $(sudo docker node ls --format '{{.ID}}' --filter role=manager)
+      fi
 
-      # Save the worker join token and manager IP to a shared location
-      # so the monitoring node can join the swarm
-      WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
+      # Load monitor_node if it exists
+      if [ -f /vagrant/monitor/monitor_node_id ]; then 
+        export MONITORING_NODE_ID=$(cat /vagrant/monitor/monitor_node_id)
+        export MONITOR_PUB_IP=$(cat /vagrant/monitor/monitor_pub_ip)
+      fi
+
+      if [ -z "$MONITOR_NODE_ID" ]; then
+        # Setup Monitor VM using ssh
+        SWARM_WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
+
+        # Setup ssh-agent and keys
+        eval "$(ssh-agent -s)"
+        if [ ! -f ~/.ssh/id_monitor ]; then
+          ssh-keygen -t ed25519 -f ~/.ssh/id_monitor -N "" -C "monitor"
+        fi  
+        ssh-add /root/.ssh/id_monitor
+
+        # Setup monitor machine using ssh
+        echo "ssh into monitor machine to setup node id get IP"
+        RESULT=$(ssh root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_MANAGER_IP bash -s" < /vagrant/monitor_setup.sh)
+        MONITOR_NODE_ID=$(echo $RESULT | awk '{print $1}')
+        MONITOR_PUB_IP=$(echo $RESULT | awk '{print $2}')
+
+        # Save information from machine
+        echo "Back from ssh"
+        mkdir -p /vagrant/monitor
+        echo "Saving monitor information to files on system"
+        echo $MONITOR_NODE_ID > /vagrant/monitor/monitor_node_id
+        echo $MONITOR_PUB_IP > /vagrant/monitor/monitor_pub_ip
+      else 
+        echo "Monitor already added using saved ip and node id and moving on" 
+      fi
+
+      if [ -n "$MONITORING_NODE_ID" ] && ! sudo docker node inspect $MONITORING_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
+        echo "Applying role=monitoring label to this node (ID: $MONITOR_NODE_ID)..."
+        docker node update --label-add role=monitoring $MONITOR_NODE_ID
+      fi
 
       # Copy compose file
       mkdir -p /home/vagrant
@@ -213,6 +246,13 @@ Vagrant.configure("2") do |config|
       echo "  docker stack ps $STACK_NAME"
       echo "  docker service logs ${STACK_NAME}_minitwit"
       echo "  docker service logs ${STACK_NAME}_postgres"
+      echo ""
+      echo "===================================="
+      echo "Monitor deployed and running!"
+      echo "===================================="
+      echo "Access Prometheus at: http://$MONITOR_PUB_IP:9090"
+      echo "Access Grafana at: http://$MONITOR_PUB_IP:3000"
+      echo "Access Loki at: http://$MONITOR_PUB_IP:3100"
 SHELL
   end
 
@@ -256,82 +296,19 @@ SHELL
     monitor.vm.provision "file", source: "~/.ssh/id_monitor", destination: "/root/.ssh/id_monitor"
 
     monitor.vm.provision "shell", env: {
-      "SWARM_MANAGER_IP" => ENV['SWARM_MANAGER_IP'],
+      "SSH_PUB_KEY" => ENV['SSH_PUB_KEY'],
     }, inline: <<-SHELL
-      set -euo pipefail
+    set -euo pipefail
 
-      if [ -z "$SWARM_MANAGER_IP" ]; then
-          echo "ERROR: $var is not set. Please set it in your host environment."
-          exit 1
-        fi
+    if [ -z "${SSH_PUB_KEY}" ]; then
+      echo "ERROR: SSH_PUB_KEY is not set. Please set it in your host environment."
+      exit 1
+    fi
 
-      sudo apt-get update -y
-      sudo apt-get install -y ca-certificates curl gnupg lsb-release
-
-      # Uninstall conflicting packages
-      sudo apt remove --ignore-missing $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-
-      if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-        echo "Setting up Docker's GPG key and repository (first time only)..."
-        sudo install -m 0755 -d /etc/apt/keyrings
-        curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
-        sudo chmod a+r /etc/apt/keyrings/docker.gpg
-        CODENAME=$(lsb_release -cs)
-        if [ "$CODENAME" = "bookworm" ]; then
-          CODENAME="bullseye"
-        fi
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update -y
-        echo "Docker repository configured"
-      else
-        echo "Docker GPG key already exists, skipping repository setup"
-      fi
-
-      sudo apt-get update
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-      # --- SWARM SETUP (WORKER) ---
-      eval "$(ssh-agent -s)"
-      ssh-add /root/.ssh/id_monitor
-      # Read the join token written by the minitwit (manager) node
-      SWARM_WORKER_TOKEN=$(ssh root@$SWARM_MANAGER_IP "docker swarm join-token worker -q")
-      if [ -n "$SWARM_WORKER_TOKEN" ] && [ -n "$SWARM_MANAGER_IP" ]; then
-        if ! sudo docker info | grep "Swarm: active"; then
-          echo "Joining swarm as worker..."
-          sudo docker swarm join --token $SWARM_WORKER_TOKEN $SWARM_MANAGER_IP:2377
-        else
-          echo "Already part of a swarm"
-        fi
-      else
-        echo "WARNING: SWARM_WORKER_TOKEN or SWARM_MANAGER_IP not set — minitwit node must be provisioned first."
-        echo "Falling back to standalone docker compose..."
-      fi
-
-      # Label this node as the monitoring node for placement constraints
-      # This must be run from the manager, so we SSH to it
-      echo "Note: label 'role=monitoring' must be applied from the manager node:"
-      MONITORING_NODE_ID=$(sudo docker info --format '{{.Swarm.NodeID}}')
-      echo "Applying role=monitoring label to this node (ID: $MONITORING_NODE_ID)..."
-      ssh root@$SWARM_MANAGER_IP "docker node update --label-add role=monitoring $MONITORING_NODE_ID"
-      echo "Label applied successfully"
-      
-
-      mkdir -p ./prometheus_data
-      sudo chown -R 65534:65534 ./prometheus_data
-      mkdir -p ./grafana_data
-      sudo chown -R 472:472 ./grafana_data
-      sudo docker compose --profile prod down 2>/dev/null || true
-      sudo docker compose --profile prod up -d
-
-      IP=$(hostname -I | awk '{print $1}')
-      echo "===================================="
-      echo "Monitor deployed and running!"
-      echo "===================================="
-      echo "Access Prometheus at: http://$IP:9090"
-      echo "Access Grafana at: http://$IP:3000"
-      echo "Access Loki at: http://$IP:3100"
+    if ! grep -qF "$SSH_PUB_KEY" /root/.ssh/authorized_keys; then
+      echo "$SSH_PUB_KEY" >> /root/.ssh/authorized_keys
+    fi
+    
     SHELL
   end
 end
