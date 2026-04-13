@@ -73,8 +73,8 @@ services:
   prometheus:
     image: prom/prometheus:latest
     volumes:
-      - ./prometheus_data/:/prometheus/data/
-      - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
+      - /root/prometheus_data/:/prometheus/data/
+      - /root/prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
     ports:
       - target: 9090
         published: 9090
@@ -98,9 +98,9 @@ services:
       - PROMETHEUS_ADDRESS=prometheus
       - LOKI_ADDRESS=loki
     volumes:
-      - ./grafana_data:/var/lib/grafana/
-      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+      - /root/grafana_data:/var/lib/grafana/
+      - /root/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - /root/grafana/dashboards/:/etc/grafana/provisioning/dashboards/
     ports:
       - target: 3000
         published: 3000
@@ -121,7 +121,7 @@ services:
       - target: 3100
         publised: 3100
     volumes:
-      - ./loki/loki-config.yml:/etc/loki/local-config.yaml
+      - /root/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     networks:
