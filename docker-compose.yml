@@ -8,7 +8,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - target: ${POSTGRES_PORT}
+        published: 5432
     networks:
       - minitwit-network
     healthcheck:
@@ -19,7 +20,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.role == app
+          - node.hostname == minitwit
       resources:
         limits:
           cpus: '${POSTGRES_CPU_LIMIT:-0.2}'
@@ -37,7 +38,7 @@ services:
     logging:
       driver: loki
       options:
-        loki-url: http://loki-prod:3100/loki/api/v1/push  # Overlay network resolves service name
+        loki-url: http://loki:3100/loki/api/v1/push  # Overlay network resolves service name
         loki-external-labels: service=minitwit,env=prod
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE:-disable}
@@ -69,33 +70,14 @@ services:
           cpus: '0.2'
           memory: 128M
 
-  prometheus-agent:
-    image: prom/prometheus:latest
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--enable-feature=agent"
-    volumes:
-      - ./prometheus/prometheus_agent.yml:/etc/prometheus/prometheus.yml
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - minitwit-network
-    deploy:
-      mode: global
-      placement:
-        constraints:
-          - node.labels.role == app
-      resources:
-        limits:
-          cpus: '0.1'
-          memory: 128M
-
-  prometheus-prod:
+  prometheus:
     image: prom/prometheus:latest
     volumes:
       - ./prometheus_data/:/prometheus/data/
       - ./prometheus/prometheus_prod.yml:/etc/prometheus/prometheus.yml
     ports:
-      - '9090:9090'
+      - target: 9090
+        published: 9090
     networks:
       - minitwit-network
     command:
@@ -110,32 +92,34 @@ services:
           cpus: '0.3'
           memory: 256M
 
-  grafana-prod:
+  grafana:
     image: grafana/grafana
     environment:
-      - PROMETHEUS_ADDRESS=prometheus-prod
-      - LOKI_ADDRESS=loki-prod
+      - PROMETHEUS_ADDRESS=prometheus
+      - LOKI_ADDRESS=loki
     volumes:
       - ./grafana_data:/var/lib/grafana/
       - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
       - ./grafana/dashboards/:/etc/grafana/provisioning/dashboards/
     ports:
-      - "3000:3000"
+      - target: 3000
+        published: 3000
     networks:
       - minitwit-network
     deploy:
       placement:
         constraints:
-          - node.labels.role == monitoring
+          - node.hostname == monitoring
       resources:
         limits:
           cpus: '0.3'
           memory: 256M
 
-  loki-prod:
+  loki:
     image: grafana/loki:3.6.7
     ports:
-      - "3100:3100"
+      - target: 3100
+        publised: 3100
     volumes:
       - ./loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
@@ -145,7 +129,7 @@ services:
     deploy:
       placement:
         constraints:
-          - node.labels.role == monitoring
+          - node.hostname == monitoring
       resources:
         limits:
           cpus: '0.2'
