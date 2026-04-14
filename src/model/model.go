@@ -38,7 +38,7 @@ func (Message) TableName() string {
 }
 
 type Latest struct {
-	Latest uint		`gorm:"primaryKey;autoIncrement;column:latest"`
+	Latest int32		`gorm:"primaryKey;autoIncrement;column:latest"`
 }
 
 func (Latest) TableName() string {
