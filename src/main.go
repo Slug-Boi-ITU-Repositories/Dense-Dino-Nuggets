@@ -89,6 +89,7 @@ var GormDB *gorm.DB
 var UserRepo *repository.UserRepository
 var MessageRepo *repository.MessageRepository
 var FollowerRepo *repository.FollowerRepository
+var LatestRepo *repository.LatestRepository
 
 func renderTimelineTemplate(w http.ResponseWriter, data TimelineData) error {
 	tmpl, err := template.New("layout.html").
@@ -849,12 +850,6 @@ func main() {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	MinitwitAPIService := openapi.NewMinitwitAPIService()
-	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
-
-	router := openapi.NewRouter(MinitwitAPIController)
-	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
-
 	// Check if DATABASE_URL is set in environment first
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -875,10 +870,19 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to connect to database with GORM:", err)
 	}
+
 	// Initialize repositories
 	UserRepo = repository.NewUserRepository(GormDB)
 	MessageRepo = repository.NewMessageRepository(GormDB)
 	FollowerRepo = repository.NewFollowerRepository(GormDB)
+	LatestRepo = repository.NewLatestRepository(GormDB)
+
+	MinitwitAPIService := openapi.NewMinitwitAPIService(LatestRepo)
+	MinitwitAPIController := openapi.NewMinitwitAPIController(MinitwitAPIService)
+
+	router := openapi.NewRouter(MinitwitAPIController)
+	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
+	
 	// Seed database with initial data if empty
 	var userCount int64
 	GormDB.Model(&model.User{}).Count(&userCount)
