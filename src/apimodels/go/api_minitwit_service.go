@@ -21,6 +21,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"minitwit/src/repository"
+
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,16 +40,11 @@ var (
 	apiDBInit sync.Once
 )
 
-func updateLatestIfProvided(latest int32) {
-	if latest <= 0 {
+func (s *MinitwitAPIService) updateLatestIfProvided(latest int32) {
+	err := s.latestRepo.UpdateLatest(latest)
+	if err != nil { // TODO: add error handling
 		return
-	}
-	for {
-		current := atomic.LoadInt64(&latestValue)
-		if atomic.CompareAndSwapInt64(&latestValue, current, int64(latest)) {
-			return
-		}
-	}
+	}       
 }
 
 func getLatest() int32 {
@@ -105,11 +102,14 @@ func formatMessageTime(unixTimestamp int64) string {
 // This service should implement the business logic for every endpoint for the MinitwitAPI API.
 // Include any external packages or services that will be required by this service.
 type MinitwitAPIService struct {
+	latestRepo *repository.LatestRepository
 }
 
 // NewMinitwitAPIService creates a default api service
-func NewMinitwitAPIService() *MinitwitAPIService {
-	return &MinitwitAPIService{}
+func NewMinitwitAPIService(latestRepo *repository.LatestRepository) *MinitwitAPIService {
+	return &MinitwitAPIService{
+		latestRepo: latestRepo,
+	}
 }
 
 // GetFollow -
@@ -119,7 +119,7 @@ func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, aut
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -185,7 +185,7 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	db, err := openDB()
 	if err != nil {
@@ -287,7 +287,11 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 
 // GetLatestValue -
 func (s *MinitwitAPIService) GetLatestValue(ctx context.Context) (ImplResponse, error) {
-	return Response(http.StatusOK, LatestValue{Latest: getLatest()}), nil
+	latest, err := s.latestRepo.GetLatest()
+	if err != nil {
+		return Response(http.StatusInternalServerError, nil), err
+	}
+	return Response(http.StatusOK, LatestValue{Latest: latest}), nil
 }
 
 // GetMessages -
@@ -296,7 +300,7 @@ func (s *MinitwitAPIService) GetMessages(ctx context.Context, authorization stri
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -365,7 +369,7 @@ func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username st
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -444,7 +448,7 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	db, err := openDB()
 	if err != nil {
@@ -491,7 +495,7 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 // PostRegister -
 func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterRequest, latest int32) (ImplResponse, error) {
 	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	username := strings.TrimSpace(payload.Username)
 	email := strings.TrimSpace(payload.Email)
