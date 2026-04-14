@@ -13,7 +13,7 @@ func NewLatestRepository(database *gorm.DB) *LatestRepository {
     return &LatestRepository{db: database}
 }
 
-func (r *LatestRepository) GetLatest() (uint, error) {
+func (r *LatestRepository) GetLatest() (int32, error) {
     var latest model.Latest
     result := r.db.First(&latest)
     if result.Error != nil {
@@ -22,19 +22,31 @@ func (r *LatestRepository) GetLatest() (uint, error) {
     return latest.Latest, nil
 }
 
-func (r *LatestRepository) IncrementLatest() (uint, error) {
-    var latest model.Latest
-    
-    result := r.db.First(&latest)
-    if result.Error != nil {
-        return 0, result.Error
-    }
-    latest.Latest++
-    
-    result = r.db.Save(&latest)
-    if result.Error != nil {
-        return 0, result.Error
+func (r *LatestRepository) UpdateLatest(latest int32) error {
+        if latest <= 0 {
+        return nil
     }
     
-    return latest.Latest, nil
+    for {
+        // Get current value
+        current, err := r.GetLatest()
+        if err != nil {
+            return err
+        }
+        
+        // Try to update value
+		// Unsure if this where check is needed
+        result := r.db.Model(&model.Latest{}).
+            Where("latest = ?", current).
+            Update("latest", latest)
+        
+        if result.Error != nil {
+            return result.Error
+        }
+        
+        // Updated row = success
+        if result.RowsAffected > 0 {
+            return nil
+        }   
+    }
 }
