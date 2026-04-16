@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
@@ -47,7 +48,7 @@ type Message struct {
 
 type BaseTemplateData struct {
 	User    *User
-	Flashes []interface{}
+	Flashes []string
 }
 
 type RegisterData struct {
@@ -80,6 +81,7 @@ type TimelineData struct {
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
+const FLASHES_KEY = "flashes"
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
@@ -134,19 +136,71 @@ func getUser(r *http.Request) (*User, error) {
 	return user, nil
 }
 
-func getFlashes(r *http.Request, w http.ResponseWriter) ([]interface{}, error) {
-	session, err := store.Get(r, "app-session")
+// This is a helper function for flashes
+func flashesFromCookie(cookie *http.Cookie) ([]string, error) {
+	val, err := base64.StdEncoding.DecodeString(cookie.Value)
 	if err != nil {
+		log.Printf("Error in decodeing flashes: %s\n", err.Error())
+		return nil, err
+	}
+	if string(val) == "" {
+		return []string{}, nil
+	}
+	return strings.Split(string(val), ";"), nil
+}
+
+func getFlashes(r *http.Request, w http.ResponseWriter) ([]string, error) {
+	cookie, err := r.Cookie(FLASHES_KEY)
+	if errors.Is(err, http.ErrNoCookie) {
+		return []string{}, nil
+	} else if err != nil {
+		log.Printf("Error in getting flashes cookie: %s\n", err.Error())
 		return nil, err
 	}
 
-	flashes := session.Flashes()
-	err = session.Save(r, w)
+	flashes, err := flashesFromCookie(cookie)
 	if err != nil {
+		log.Printf("Error in getting flashes from cookie: %s\n", err.Error())
 		return nil, err
 	}
 
+	http.SetCookie(w, &http.Cookie{
+		Name: FLASHES_KEY,
+		Value: "",
+		MaxAge: 0,
+		Path: "/",
+		HttpOnly: true,
+	})
+	
 	return flashes, nil
+}
+
+func addFlash(flash string, r *http.Request, w http.ResponseWriter) error {
+	cookie, err := r.Cookie(FLASHES_KEY)
+	if err != nil && !errors.Is(err, http.ErrNoCookie) {
+		log.Printf("Error in getting flashes cookie: %s\n", err.Error())
+		return err
+	}
+
+	flashes := []string{}
+	if cookie != nil {
+		flashes, err = flashesFromCookie(cookie)
+		if err != nil {
+			log.Printf("Error in getting flashes from cookie: %s\n", err.Error())
+			return err
+		}
+	}
+	flashes = append(flashes, flash)
+	encoded_flashes := base64.StdEncoding.EncodeToString([]byte(strings.Join(flashes, ";")))
+
+	http.SetCookie(w, &http.Cookie{
+		Name: FLASHES_KEY,
+		Value: encoded_flashes,
+		MaxAge: 0,
+		Path: "/",
+		HttpOnly: true,
+	})
+	return nil
 }
 
 func init_db() {
@@ -422,14 +476,7 @@ func FollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	session.AddFlash(fmt.Sprintf("You are now following \"%s\"", username))
-	err = session.Save(r, w)
+	err = addFlash(fmt.Sprintf("You are now following \"%s\"", username), r, w)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -453,13 +500,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create session to add flashes
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	var loginErr error
 	if r.Method == "POST" {
 		err = r.ParseForm()
@@ -483,8 +523,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				loginErr = errors.New("invalid username")
-				session.AddFlash("Invalid username")
-				err = session.Save(r, w)
+				err = addFlash("Invalid username", r, w)
 				if err != nil {
 					log.Println(err)
 					http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -497,8 +536,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 			}
 		} else if !check_password_hash(password, modelUser.PwHash) {
 			loginErr = errors.New("invalid password")
-			session.AddFlash("Invalid password")
-			err = session.Save(r, w)
+			err = addFlash("Invalid password", r, w)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -511,9 +549,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				Username: modelUser.Username,
 				Email:    modelUser.Email,
 			}
-
-			session.AddFlash("You were logged in")
-			err = session.Save(r, w)
+			err = addFlash("You were logged in", r, w)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -599,13 +635,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	var username, email string
 
 	if r.Method == "POST" {
@@ -641,9 +670,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-
-			session.AddFlash("You were successfully registered and can login now")
-			err = session.Save(r, w)
+			
+			err = addFlash("You were successfully registered and can login now", r, w)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -723,14 +751,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	session.AddFlash("Your message was recorded")
-	err = session.Save(r, w)
+	err = addFlash("Your message was recorded", r, w)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -767,15 +788,8 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
 
-	session.AddFlash("You were logged out")
-	err = session.Save(r, w)
+	err = addFlash("You were logged out", r, w)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -815,14 +829,7 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := store.Get(r, "app-session")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-	session.AddFlash(fmt.Sprintf("You are no longer following \"%s\"", username))
-	err = session.Save(r, w)
+	err = addFlash(fmt.Sprintf("You are no longer following \"%s\"", username), r, w)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
