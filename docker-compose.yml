@@ -84,6 +84,14 @@ services:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--web.enable-remote-write-receiver"
     deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
       placement:
         constraints:
           - node.labels.role == monitoring
@@ -107,6 +115,14 @@ services:
     networks:
       - minitwit-network
     deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
       placement:
         constraints:
           - node.hostname == monitoring
@@ -127,6 +143,14 @@ services:
     networks:
       - minitwit-network
     deploy:
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
       placement:
         constraints:
           - node.hostname == monitoring
