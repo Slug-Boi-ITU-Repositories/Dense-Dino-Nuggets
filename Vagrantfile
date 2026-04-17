@@ -35,6 +35,12 @@ Vagrant.configure("2") do |config|
       u.cpus = 2
       # UTM: upload to a guaranteed writable temp path
       override.vm.provision "file", source: "./docker-compose.yml", destination: "/tmp/docker-compose.yml"
+      # UTM only: upload .env because shared folders are limited.
+      if File.file?(env_file)
+        override.vm.provision "file", source: env_file, destination: "/home/vagrant/.env"
+      else
+        warn "WARNING: .env was not found at #{env_file}. UTM guest will not receive /home/vagrant/.env"
+      end
     end
 
     server.vm.provider :virtualbox do |vb, override|
@@ -82,7 +88,10 @@ Vagrant.configure("2") do |config|
       "DB_SSL_MODE" => ENV['DB_SSL_MODE'],
       "VOLUME_MOUNT" => ENV['VOLUME_MOUNT'] || "/mnt/pgdata",
       "MONITOR_IP" => ENV['MONITOR_IP'],
-      
+      # NOIP ENVs
+      "NOIP_USERNAME" => ENV['NOIP_USERNAME'],
+      "NOIP_PASSWORD" => ENV['NOIP_PASSWORD'],
+      "NOIP_HOSTNAMES" => ENV['NOIP_HOSTNAMES'],
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
       "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
@@ -138,11 +147,11 @@ Vagrant.configure("2") do |config|
         fi
 
         echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
         sudo apt-get update -y
         
+
         echo "Docker repository configured"
       else
         echo "Docker GPG key already exists, skipping repository setup"
@@ -223,6 +232,50 @@ Vagrant.configure("2") do |config|
       else
         echo "WARNING: Volume device $VOLUME_DEVICE not found. Using local volume."
       fi
+
+      # Setup nginx and ufw (reverse-proxy && firewall)
+      sudo apt-get install -y ufw nginx
+      sudo systemctl enable --now nginx
+
+      # UFW enable is interactive unless --force is used.
+      if ! sudo ufw status | grep -q "Status: active"; then
+        sudo ufw --force enable
+      else
+        echo "UFW is already active"
+      fi
+      sudo ufw allow 'Nginx HTTP'
+      sudo ufw allow ssh
+
+      # No-IP dynamic DNS client (idempotent)
+      NOIP_IMAGE="ghcr.io/noipcom/noip-duc:latest"
+      NOIP_CONTAINER="noip-duc"
+      NOIP_ENV_FILE="/home/vagrant/.env"
+      if [ ! -f "$NOIP_ENV_FILE" ] && [ -f ".env" ]; then
+        NOIP_ENV_FILE=".env"
+      fi
+
+      if [ -z "${NOIP_USERNAME:-}" ] || [ -z "${NOIP_PASSWORD:-}" ] || [ -z "${NOIP_HOSTNAMES:-}" ]; then
+        echo "WARNING: NOIP_* variables are not fully set. Skipping noip-duc container startup."
+      elif [ ! -f "$NOIP_ENV_FILE" ]; then
+        echo "WARNING: $NOIP_ENV_FILE not found. Skipping noip-duc container startup."
+      else
+        sudo docker pull "$NOIP_IMAGE"
+        if sudo docker ps -a --format '{{.Names}}' | grep -qx "$NOIP_CONTAINER"; then
+          if [ "$(sudo docker inspect -f '{{.State.Running}}' "$NOIP_CONTAINER")" = "true" ]; then
+            echo "$NOIP_CONTAINER is already running"
+          else
+            echo "Starting existing $NOIP_CONTAINER container"
+            sudo docker start "$NOIP_CONTAINER"
+          fi
+        else
+          sudo docker run -d \
+            --env-file "$NOIP_ENV_FILE" \
+            --restart unless-stopped \
+            --name "$NOIP_CONTAINER" \
+            "$NOIP_IMAGE"
+        fi
+      fi
+      
 
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
@@ -402,8 +455,7 @@ SHELL
         fi
 
         echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") \
-          $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
         sudo apt-get update -y
         
