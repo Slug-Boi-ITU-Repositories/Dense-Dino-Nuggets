@@ -3,8 +3,8 @@
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "minitwit" do |server|
-    server.vm.hostname = "minitwit"
+  config.vm.define "minitwit3" do |server|
+    server.vm.hostname = "minitwit3"
 
     server.vm.provider :utm do |u, override|
       config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
@@ -44,7 +44,8 @@ Vagrant.configure("2") do |config|
       provider.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
       provider.vm.provision "file", source: ".ssh/id_monitor", destination: "/tmp/id_monitor"
     end
-
+    server.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
+    server.vm.provision "file", source: ".ssh/id_monitor", destination: "/tmp/id_monitor"
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
     server.vm.provision "shell", env: {
@@ -151,7 +152,8 @@ Vagrant.configure("2") do |config|
         export MONITOR_PUB_IP=$(cat /vagrant/monitor/monitor_pub_ip)
       fi
 
-      if [ -z "$MONITOR_NODE_ID" ]; then
+      echo "Check if monitor node id is set"
+      if [ -z "${MONITOR_NODE_ID:-}" ]; then
         # Setup Monitor VM using ssh
         SWARM_WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
 
@@ -160,8 +162,9 @@ Vagrant.configure("2") do |config|
         ssh-add /root/.ssh/id_monitor
 
         # Setup monitor machine using ssh
+        # ssh root@$MONITOR_IP
         echo "ssh into monitor machine to setup node id get IP"
-        RESULT=$(ssh root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_MANAGER_IP bash -s" < /vagrant/monitor_setup.sh)
+        RESULT=$(ssh -o StrictHostKeyChecking=accept-new root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_IP bash -s" < /vagrant/monitor_setup.sh)
         MONITOR_NODE_ID=$(echo $RESULT | awk '{print $1}')
         MONITOR_PUB_IP=$(echo $RESULT | awk '{print $2}')
 
@@ -288,7 +291,7 @@ SHELL
       override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
       provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
+      override.ssh.private_key_path = '~/.ssh/monitor_id'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
@@ -297,7 +300,6 @@ SHELL
     monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
     monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
     monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
-    monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
     monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"

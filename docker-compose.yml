@@ -20,11 +20,11 @@ services:
     deploy:
       placement:
         constraints:
-          - node.hostname == minitwit
+          - node.hostname == minitwit3
       resources:
         limits:
-          cpus: '${POSTGRES_CPU_LIMIT:-0.2}'
-          memory: ${POSTGRES_MEM_LIMIT:-300M}
+          cpus: '${POSTGRES_CPU_LIMIT}'
+          memory: ${POSTGRES_MEM_LIMIT}
 
   minitwit:
     image: ${DOCKER_USERNAME}/minitwitimage:latest
@@ -95,10 +95,6 @@ services:
       placement:
         constraints:
           - node.labels.role == monitoring
-      resources:
-        limits:
-          cpus: '0.3'
-          memory: 256M
 
   grafana:
     image: grafana/grafana
@@ -126,16 +122,12 @@ services:
       placement:
         constraints:
           - node.hostname == monitoring
-      resources:
-        limits:
-          cpus: '0.3'
-          memory: 256M
 
   loki:
     image: grafana/loki:3.6.7
     ports:
       - target: 3100
-        publised: 3100
+        published: 3100
     volumes:
       - /root/loki/loki-config.yml:/etc/loki/local-config.yaml
       - loki_data:/loki
@@ -143,6 +135,8 @@ services:
     networks:
       - minitwit-network
     deploy:
+      mode: replicated
+      replicas: 1
       update_config:
         parallelism: 1
         delay: 10s
@@ -154,10 +148,6 @@ services:
       placement:
         constraints:
           - node.hostname == monitoring
-      resources:
-        limits:
-          cpus: '0.2'
-          memory: 256M
 
 volumes:
   postgres_data:
