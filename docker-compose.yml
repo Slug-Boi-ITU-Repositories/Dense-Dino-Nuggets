@@ -18,13 +18,23 @@ services:
       timeout: 5s
       retries: 5
     deploy:
+      mode: replicated
+      replicas: 1
       placement:
         constraints:
-          - node.hostname == minitwit3
-      resources:
-        limits:
-          cpus: '${POSTGRES_CPU_LIMIT}'
-          memory: ${POSTGRES_MEM_LIMIT}
+          - node.hostname == minitwit
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: stop-first
+      rollback_config:
+        parallelism: 1
+        delay: 5s
 
   minitwit:
     image: ${DOCKER_USERNAME}/minitwitimage:latest
