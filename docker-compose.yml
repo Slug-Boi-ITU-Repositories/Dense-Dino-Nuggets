@@ -111,6 +111,7 @@ services:
     environment:
       - PROMETHEUS_ADDRESS=prometheus
       - LOKI_ADDRESS=loki
+	  - GF_SERVER_ROOT="http://${MONITOR_PUB_IP}:3000"
     volumes:
       - /root/grafana_data:/var/lib/grafana/
       - /root/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
