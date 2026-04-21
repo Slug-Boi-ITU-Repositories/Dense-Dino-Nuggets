@@ -17,7 +17,7 @@ func (r *LatestRepository) GetLatest() (int32, error) {
     var latest model.Latest
     result := r.db.First(&latest)
     if result.Error != nil {
-        return 0, result.Error
+        return -1, result.Error
     }
     return latest.Latest, nil
 }
@@ -32,6 +32,11 @@ func (r *LatestRepository) UpdateLatest(latest int32) error {
         current, err := r.GetLatest()
         if err != nil {
             return err
+        }
+
+        if current == -1 {
+            result := r.db.Model(&model.Latest{}).Create(&model.Latest{Latest: latest})
+            return result.Error
         }
         
         // Try to update value
