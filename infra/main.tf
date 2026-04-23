@@ -7,7 +7,7 @@ terraform {
   }
   backend "s3" {
     endpoint = "https://fra1.digitaloceanspaces.com"
-    region   = "eu-fra1"          # required field, value doesn't matter for DO
+    region   = "us-east-1"          # required field, value doesn't matter for DO
     bucket   = "minitwit-bucket"
     key      = "minitwit/terraform.tfstate"
 
@@ -24,21 +24,53 @@ resource "digitalocean_volume" "pgdata" {
   region      = "fra1"
   name        = "volume-fra1-01"
   size        = 50
-  description = "Postgres data volume"
 }
 
 resource "digitalocean_droplet" "minitwit" {
-  name   = "minitwit-prod"
+  name   = "minitwit"
   region = "fra1"
   size   = "s-1vcpu-1gb"
   image  = "ubuntu-22-04-x64"
 
+  lifecycle {
+    ignore_changes = [
+      image,
+      user_data,
+      public_networking,
+    ]
+  }
+
   user_data = templatefile("${path.module}/provision.sh.tpl", {
-    postgres_user     = var.postgres_user
-    postgres_password = var.postgres_password
-    postgres_db       = var.postgres_db
-    volume_mount      = var.volume_mount
+    postgres_user         = var.postgres_user
+    postgres_password     = var.postgres_password
+    postgres_db           = var.postgres_db
+    volume_mount          = var.volume_mount
+    monitor_pub_key       = var.monitor_pub_key
+    postgres_host         = var.postgres_host
+    monitor_ip            = var.monitor_ip
+    docker_username       = var.docker_username
+    container_name_prefix = var.container_name_prefix
+    postgres_port         = var.postgres_port
+    db_ssl_mode           = var.db_ssl_mode
+    postgres_cpu_limit    = var.postgres_cpu_limit
+    postgres_mem_limit    = var.postgres_mem_limit
+    app_replicas          = var.app_replicas
+    app_cpu_limit         = var.app_cpu_limit
+    app_mem_limit         = var.app_mem_limit
   })
+}
+
+resource "digitalocean_droplet" "monitoring" {
+  name   = "monitoring"
+  region = "fra1"
+  size   = "s-1vcpu-2gb"
+  image  = "ubuntu-22-04-x64"
+
+  lifecycle {
+    ignore_changes = [
+      public_networking,
+    ]
+  }
 }
 
 resource "digitalocean_volume_attachment" "pgdata" {
