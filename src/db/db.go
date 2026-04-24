@@ -47,7 +47,7 @@ func Connect(dsn string) (*gorm.DB, error) {
 
 	log.Println("Running migrations...")
 	if shouldMigrate(DB) {
-		err := DB.AutoMigrate(&model.User{}, &model.Message{}, &model.Follower{})
+		err := DB.AutoMigrate(&model.User{}, &model.Message{}, &model.Follower{}, &model.Latest{})
 		if err != nil {
 			log.Printf("Failed to run migrations: %s", err.Error())
 			return nil, err
