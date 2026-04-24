@@ -14,13 +14,14 @@ var DB *gorm.DB
 func shouldMigrate(db *gorm.DB) bool {
 	m := db.Migrator()
 
-	if !m.HasTable(&model.User{}) || !m.HasTable(&model.Message{}) || !m.HasTable(&model.Follower{}) {
+	if !m.HasTable(&model.User{}) || !m.HasTable(&model.Message{}) || !m.HasTable(&model.Follower{}) || !m.HasTable(&model.Latest{}) {
 		return true
 	}
 
 	if !m.HasColumn(&model.User{}, "pw_hash") ||
 		!m.HasColumn(&model.Message{}, "pub_date") ||
-		!m.HasColumn(&model.Message{}, "flagged") {
+		!m.HasColumn(&model.Message{}, "flagged") ||
+		!m.HasColumn(&model.Latest{}, "latest")	{
 		return true
 	}
 
@@ -47,7 +48,7 @@ func Connect(dsn string) (*gorm.DB, error) {
 
 	log.Println("Running migrations...")
 	if shouldMigrate(DB) {
-		err := DB.AutoMigrate(&model.User{}, &model.Message{}, &model.Follower{})
+		err := DB.AutoMigrate(&model.User{}, &model.Message{}, &model.Follower{}, &model.Latest{})
 		if err != nil {
 			log.Printf("Failed to run migrations: %s", err.Error())
 			return nil, err

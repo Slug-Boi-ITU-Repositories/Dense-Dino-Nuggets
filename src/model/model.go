@@ -36,3 +36,11 @@ type Message struct {
 func (Message) TableName() string {
 	return "message"
 }
+
+type Latest struct {
+	Latest int32		`gorm:"primaryKey;autoIncrement;column:latest"`
+}
+
+func (Latest) TableName() string {
+	return "latest"
+}
