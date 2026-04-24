@@ -105,9 +105,35 @@ $ ./minitwit
 
 If you would like to build on this application you have to download `go` as well as have a `C` compiler to compile the flag tool used to flag tweets in the system. You will also need docker and vagrant if you would like to run the application in a container and provision it as a VM or on digital ocean
 
+## Setup for Open Tofu
+
+You need to have the tofu cli installed to run the commands below are the required tfvars.
+
+```
+do_token          = ""
+postgres_user     = ""
+postgres_password = ""
+postgres_db       = ""
+volume_mount      = ""
+monitor_pub_key   = ""
+postgres_host     = ""
+monitor_ip        = ""
+```
+
+You also need to have these env vars set through an .env file.
+
+```
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+TF_VAR_do_token=""
+TF_VAR_postgres_user=""
+TF_VAR_postgres_password=""
+```
+
 ## Setup for vagrant
 
 Required plugins for vagrant:
+
 ```
 vagrant-digitalocean
 vagrant-scp
