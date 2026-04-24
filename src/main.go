@@ -854,7 +854,7 @@ func main() {
 		Path:     "/",
 		MaxAge:   86400 * 7, // 7 days
 		HttpOnly: true,
-		Secure:   false, // No ssl cert
+		Secure:   true, // No ssl cert
 		SameSite: http.SameSiteLaxMode,
 	}
 
