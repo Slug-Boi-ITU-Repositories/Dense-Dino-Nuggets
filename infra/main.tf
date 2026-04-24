@@ -40,12 +40,11 @@ resource "digitalocean_droplet" "minitwit" {
     ]
   }
 
-  user_data = templatefile("${path.module}/provision.sh.tpl", {
+  user_data = templatefile("${path.module}/minitwit_provision.sh.tpl", {
     postgres_user         = var.postgres_user
     postgres_password     = var.postgres_password
     postgres_db           = var.postgres_db
     volume_mount          = var.volume_mount
-    monitor_pub_key       = var.monitor_pub_key
     postgres_host         = var.postgres_host
     monitor_ip            = var.monitor_ip
     docker_username       = var.docker_username
@@ -58,6 +57,34 @@ resource "digitalocean_droplet" "minitwit" {
     app_cpu_limit         = var.app_cpu_limit
     app_mem_limit         = var.app_mem_limit
   })
+
+  connection {
+    type        = "ssh"
+    user        = "root"
+    private_key = file("~/.ssh/devops_rsa")
+    host        = self.ipv4_address
+  }
+
+  provisioner "file" {
+    source      = "./docker-compose.yml"
+    destination = "/vagrant/docker-compose.yml"
+  }
+
+  provisioner "file" {
+    source      = "./scripts/monitor_setup.sh"
+    destination = "/vagrant/monitor_setup.sh"
+  }
+
+  provisioner "file" {
+    source      = ".ssh/id_monitor"
+    destination = "/tmp/id_monitor"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "chmod +x /vagrant/monitor_setup.sh",
+    ]
+  }
 }
 
 resource "digitalocean_droplet" "monitoring" {
@@ -69,7 +96,34 @@ resource "digitalocean_droplet" "monitoring" {
   lifecycle {
     ignore_changes = [
       public_networking,
+      user_data
     ]
+  }
+
+  user_data = templatefile("${path.module}/monitor_provision.sh.tpl", {
+      monitor_pub_key       = var.monitor_pub_key
+  })
+
+  connection {
+    type        = "ssh"
+    user        = "root"
+    private_key = file("~/.ssh/monitor_id")
+    host        = self.ipv4_address
+  }
+
+  provisioner "file" {
+    source      = "./prometheus/prometheus_prod.yml"
+    destination = "/prometheus/prometheus_prod.yml"
+  }
+
+  provisioner "file" {
+    source      = "./loki/loki-config.yml"
+    destination = "/loki/loki-config.yml"
+  }
+
+  provisioner "file" {
+    source      = "./grafana/"
+    destination = "/grafana/"
   }
 }
 
