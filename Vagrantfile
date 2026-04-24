@@ -25,8 +25,8 @@ end
 
 Vagrant.configure("2") do |config|
 
-  config.vm.define "minitwit3" do |server|
-    server.vm.hostname = "minitwit3"
+  config.vm.define "minitwit" do |server|
+    server.vm.hostname = "minitwit"
 
     server.vm.provider :utm do |u, override|
       config.vm.synced_folder "./db", "/db" , owner: "root", group: "root"
