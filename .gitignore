@@ -35,6 +35,8 @@ go.work.sum
 
 # Opentofu 
 terraform.tfvars
+./terraform
+.terraform.lock.hcl
 
 # Editor/IDE
 # .idea/
