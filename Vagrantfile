@@ -75,6 +75,9 @@ Vagrant.configure("2") do |config|
     # Local port forwarding (ignored by DO)
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
+    # Copy nginx config directory from repo into VM (stage in /tmp, install in shell)
+    server.vm.provision "file", source: "./nginx", destination: "/tmp/nginx"
+
     # Provisioning
     server.vm.provision "shell", env: {
       "USERNAME" => ENV['DOCKER_USERNAME'] || ENV['USERNAME'] || "flakiator",
@@ -92,6 +95,7 @@ Vagrant.configure("2") do |config|
       "NOIP_USERNAME" => ENV['NOIP_USERNAME'],
       "NOIP_PASSWORD" => ENV['NOIP_PASSWORD'],
       "NOIP_HOSTNAMES" => ENV['NOIP_HOSTNAMES'],
+      "CERTBOT_EMAIL" => ENV['CERTBOT_EMAIL'],
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
       "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
@@ -233,7 +237,7 @@ Vagrant.configure("2") do |config|
         echo "WARNING: Volume device $VOLUME_DEVICE not found. Using local volume."
       fi
 
-      # Setup nginx and ufw (reverse-proxy && firewall)
+      #  - - - - - - - Setup TLS - - - - - - - 
       sudo apt-get install -y ufw nginx
       sudo systemctl enable --now nginx
 
@@ -276,6 +280,59 @@ Vagrant.configure("2") do |config|
         fi
       fi
       
+      # Setup nginx config
+      if [ -f /tmp/nginx/sites-available/minitwit.conf ]; then
+        sudo install -m 0644 /tmp/nginx/sites-available/minitwit.conf /etc/nginx/sites-available/minitwit.conf
+      elif [ -f /vagrant/nginx/sites-available/minitwit.conf ]; then
+        sudo install -m 0644 /vagrant/nginx/sites-available/minitwit.conf /etc/nginx/sites-available/minitwit.conf
+      else
+        echo "WARNING: minitwit nginx site config not found in /tmp/nginx or /vagrant/nginx"
+      fi
+
+      if [ -f /etc/nginx/sites-available/minitwit.conf ]; then
+        sudo ln -sfn /etc/nginx/sites-available/minitwit.conf /etc/nginx/sites-enabled/minitwit.conf
+        sudo rm -f /etc/nginx/sites-enabled/default
+        sudo nginx -t
+        sudo systemctl reload nginx
+      fi
+
+      # Install certbot for TLS certificate management
+      if ! command -v snap >/dev/null 2>&1; then
+        sudo apt-get install -y snapd
+      fi
+      sudo systemctl enable --now snapd.socket
+      if ! sudo snap list core >/dev/null 2>&1; then
+        sudo snap install core
+      fi
+      sudo snap refresh core
+      if ! sudo snap list certbot >/dev/null 2>&1; then
+        sudo snap install --classic certbot
+      fi
+
+      # Create/update symlink for certbot
+      sudo ln -sfn /snap/bin/certbot /usr/bin/certbot
+
+      # Allow necessary ports through the firewall
+      sudo ufw allow 'Nginx Full'
+      if sudo ufw status | grep -q "Nginx HTTP"; then
+        sudo ufw delete allow 'Nginx HTTP'
+      fi
+      sudo ufw allow ssh
+
+      # Obtain/renew TLS certificate without interactive prompts
+      if [ -n "${CERTBOT_EMAIL:-}" ] && [ -n "${NOIP_HOSTNAMES:-}" ]; then
+        sudo certbot --nginx \
+          --non-interactive \
+          --agree-tos \
+          --email "$CERTBOT_EMAIL" \
+          --keep-until-expiring \
+          --redirect \
+          -d "$NOIP_HOSTNAMES"
+      else
+        echo "WARNING: CERTBOT_EMAIL or NOIP_HOSTNAMES is missing. Skipping certbot."
+      fi
+      
+      # - - - - - - - End of TLS Setup - - - - - - -
 
       # Create a processed compose file with variables substituted
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
