@@ -469,6 +469,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				Value:    token,
 				Path:     "/",
 				HttpOnly: true,
+				Secure: true,
 				MaxAge:   86400, // 1 day in seconds
 			}
 			http.SetCookie(w, tokenCookie)
@@ -707,6 +708,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		MaxAge:   -1,
 		Path:     "/",
+		Secure: true,
 		HttpOnly: true,
 	})
 
