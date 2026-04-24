@@ -170,6 +170,7 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]string, error) {
 		MaxAge: 0,
 		Path: "/",
 		HttpOnly: true,
+		Secure: true,
 	})
 	
 	return flashes, nil
@@ -199,6 +200,7 @@ func addFlash(flash string, r *http.Request, w http.ResponseWriter) error {
 		MaxAge: 0,
 		Path: "/",
 		HttpOnly: true,
+		Secure: true,
 	})
 	return nil
 }
