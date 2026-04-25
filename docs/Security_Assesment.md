@@ -45,4 +45,33 @@ The following is a risk assessment of our Minitwit application.
 
 ## Risk Analysis
 
-Add a risk assessment matrix here :D
+Below we define the scale for our risk matrix for our analysis.
+
+### Likelihood Scale
+
+| Level | Description |
+|------|------------|
+| Low (1) | Difficult to exploit, requires special conditions |
+| Medium (2) | Possible with some effort |
+| High (3) | Easy to exploit, common attack |
+
+
+### Impact Scale
+
+| Level | Description |
+|------|------------|
+| Low (1) | Minor impact, no sensitive data |
+| Medium (2) | Partial data exposure or service disruption |
+| High (3) | Major data breach or full system compromise |
+
+### Risk Matrix
+
+Risk Score = Likelihood × Impact
+
+| Score | Risk Level |
+|------|------------|
+| 1–2 | Low |
+| 3–4 | Medium |
+| 6 | High |
+| 9 | Critical |
+
