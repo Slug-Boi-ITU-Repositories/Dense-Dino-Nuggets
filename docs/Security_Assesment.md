@@ -1,6 +1,6 @@
 # Security Assessment
 
-The following is a risk assessment of our Minitwit application.
+The following is a risk assessment of our Minitwit application. 
 
 ## Risk Identification
 
@@ -11,7 +11,7 @@ The following is a risk assessment of our Minitwit application.
 - PostgreSQL database
   - Database server
   - Schemas and tables
-- Session tokens
+- Session tokens (Removed? -> Cookies)
 - Docker
   - Docker images
   - Docker containers
@@ -19,21 +19,30 @@ The following is a risk assessment of our Minitwit application.
 - Monitoring system
   - Prometheus metrics system
   - Grafana dashboards and monitoring interface
+  - Loki
 - DigitalOcean droplets
+- Ingress points/managers
 - Secrets and Configuration data
   - .env files
   - API keys, database credentials
-  - TLS certificates (not implemented yet)
+  - TLS certificates
+- User credentials
+  - passwords  
 
-## Table of threat sources and risk scenarios  
+### Table of threat sources and risk scenarios  
 
 | Asset                     | Threat Source | Risk Scenario |
 |---------------------------|---------------|---------------|
-| Web frontend application  |               |               |
-| Backend API               |               |               |
-| Database server           |               |               |
-| Database schemas and tables        |               |               |
-| Session tokens            |               |               |
-| Docker images             |               |               |
-| Docker containers         |               |               |
-| Docker swarm manager node        |               |               |
+| Backend API               | External attackers, Malicious users | Attacker exploits an injection vulnerability in an API endpoint to access or modify user data in the database. |
+| PostgreSQL databas        | External attackers, Malicious insiders | Stolen credentials or misconfiguration allows for direct database access |
+| Session tokens| External attackers | Attacker exploits XSS or insecure cookies to steal session tokens and hijack user accounts |
+| Docker Swarm infrastructure | Attackers, misconfiguration | An exposed swarm manager would allow for full cluster takeover |
+| Monitoring system | External attackers | Unauthorized access to Grafana exposes internal service endpoints, system metrics, and logs, aiding further attacks |
+| DigitalOcean droplets | External attackers, leaked SSH key, weak firewall | Unauthorized SSH access leads to full server compromise |
+| Ingress/points managers | External attackers | Misconfigured ingress exposes internal services (e.g. database or monitoring endpoints) to the public internet |
+| Secrets/config data| External attackers, repository leaks | Exposed API keys allow direct access to services |
+| User credentials | External attackers | Weak password hashing allows attackers to crack stolen hashes and reuse credentials |
+
+## Risk Analysis
+
+Add a risk assessment matrix here :D
