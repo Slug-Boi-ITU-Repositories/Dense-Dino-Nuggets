@@ -110,6 +110,7 @@ func (m *Ddn) ServerService(src *dagger.Directory) *dagger.Service {
 	return src.DockerBuild().
 		WithServiceBinding("postgres", postgres).
 		WithEnvVariable("DATABASE_URL", dsn).
+		WithEnvVariable("SECURE_COOKIE", "insecure").
 		AsService(dagger.ContainerAsServiceOpts{Args: []string{"./main"}})
 }
 
@@ -215,6 +216,7 @@ func (m *Ddn) ServerServiceExposedLocalhost(src *dagger.Directory) *dagger.Servi
 	return src.DockerBuild().
 		WithServiceBinding("postgres", postgres).
 		WithEnvVariable("DATABASE_URL", dsn).
+		WithEnvVariable("SECURE_COOKIE", "insecure").
 		WithExposedPort(8080).
 		AsService(dagger.ContainerAsServiceOpts{
 			Args: []string{"./main"},

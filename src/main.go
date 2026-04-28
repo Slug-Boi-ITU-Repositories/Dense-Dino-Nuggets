@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"minitwit/src/authentication"
 	"math"
+	"minitwit/src/authentication"
 	"minitwit/src/db"
 	"minitwit/src/model"
 	"minitwit/src/repository"
@@ -67,13 +67,15 @@ type TimelineData struct {
 	ProfileUser *authentication.User
 	Follows     bool
 	Endpoint    string
-	Page 	    int
+	Page        int
 	TotalPages  int
 }
 
 const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
+
+var SECURE_COOKIE = true
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
@@ -500,7 +502,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				Value:    token,
 				Path:     "/",
 				HttpOnly: true,
-				Secure: true,
+				Secure:   SECURE_COOKIE,
 				MaxAge:   86400, // 1 day in seconds
 			}
 			http.SetCookie(w, tokenCookie)
@@ -739,7 +741,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    "",
 		MaxAge:   -1,
 		Path:     "/",
-		Secure: true,
+		Secure:   SECURE_COOKIE,
 		HttpOnly: true,
 	})
 
@@ -809,12 +811,14 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	reg := prometheus.NewRegistry()
-	// reg.MustRegister(
+	// Check for insecure cookie setting
+	secure_cookie_env := os.Getenv("SECURE_COOKIE")
+	if secure_cookie_env == "insecure" {
+		log.Println("Running with insecure cookies!")
+		SECURE_COOKIE = false
+	}
 
-	// 	collectors.NewGoCollector(),
-	// 	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	// )
+	reg := prometheus.NewRegistry()
 
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
@@ -857,7 +861,7 @@ func main() {
 
 	router := openapi.NewRouter(MinitwitAPIController)
 	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
-	
+
 	// Seed database with initial data if empty
 	var userCount int64
 	GormDB.Model(&model.User{}).Count(&userCount)
