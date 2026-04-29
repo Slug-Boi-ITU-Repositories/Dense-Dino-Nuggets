@@ -16,12 +16,16 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-RUN mkdir -p /db
+RUN groupadd -r app && useradd -r -g app -d /app -s /usr/sbin/nologin app \
+    && mkdir -p /db \
+    && chown app:app /db
 
 COPY --from=builder /out/main .
 COPY --from=builder /app/templates ./templates/
 COPY --from=builder /app/static ./static/
 
 EXPOSE 8080
+
+USER app
 
 CMD ["./main"]

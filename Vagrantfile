@@ -96,6 +96,7 @@ Vagrant.configure("2") do |config|
       "NOIP_PASSWORD" => ENV['NOIP_PASSWORD'],
       "NOIP_HOSTNAMES" => ENV['NOIP_HOSTNAMES'],
       "CERTBOT_EMAIL" => ENV['CERTBOT_EMAIL'],
+      "ENABLE_CERTBOT" => ENV['ENABLE_CERTBOT'] || "true",
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
       "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
@@ -319,17 +320,22 @@ Vagrant.configure("2") do |config|
       fi
       sudo ufw allow ssh
 
-      # Obtain/renew TLS certificate without interactive prompts
-      if [ -n "${CERTBOT_EMAIL:-}" ] && [ -n "${NOIP_HOSTNAMES:-}" ]; then
-        sudo certbot --nginx \
-          --non-interactive \
-          --agree-tos \
-          --email "$CERTBOT_EMAIL" \
-          --keep-until-expiring \
-          --redirect \
-          -d "$NOIP_HOSTNAMES"
+      # Obtain/renew TLS certificate without interactive prompts (opt-in only)
+      if [ "${ENABLE_CERTBOT:-true}" = "true" ]; then
+        if [ -n "${CERTBOT_EMAIL:-}" ] && [ -n "${NOIP_HOSTNAMES:-}" ]; then
+          sudo certbot --nginx \
+            --non-interactive \
+            --agree-tos \
+            --email "$CERTBOT_EMAIL" \
+            --keep-until-expiring \
+            --redirect \
+            -d "$NOIP_HOSTNAMES" || \
+            echo "WARNING: certbot failed; continuing without TLS."
+        else
+          echo "WARNING: CERTBOT_EMAIL or NOIP_HOSTNAMES is missing. Skipping certbot."
+        fi
       else
-        echo "WARNING: CERTBOT_EMAIL or NOIP_HOSTNAMES is missing. Skipping certbot."
+        echo "Skipping certbot (ENABLE_CERTBOT is not true)."
       fi
       
       # - - - - - - - End of TLS Setup - - - - - - -
