@@ -12,11 +12,13 @@ ENV CGO_ENABLED=1
 RUN ["go", "build", "-o", "/out/main", "./src/main.go"]
 
 
-FROM debian:bookworm-slim
+FROM alpine:3.21
 
 WORKDIR /app
 
-RUN groupadd -r app && useradd -r -g app -d /app -s /usr/sbin/nologin app \
+RUN apk add --no-cache ca-certificates \
+    && addgroup -S app \
+    && adduser -S -G app -h /app app \
     && mkdir -p /db \
     && chown app:app /db
 
