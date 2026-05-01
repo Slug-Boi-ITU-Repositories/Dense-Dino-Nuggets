@@ -52,6 +52,7 @@ services:
         loki-external-labels: service=minitwit,env=prod
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE:-disable}
+      - JWT_KEY=${JWT_KEY}
     depends_on:
       - postgres
     deploy:
