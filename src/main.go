@@ -2,9 +2,8 @@ package main
 
 import (
 	"crypto/md5"
-	"encoding/hex"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"html/template"
@@ -159,14 +158,14 @@ func getFlashes(r *http.Request, w http.ResponseWriter) ([]string, error) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name: FLASHES_KEY,
-		Value: "",
-		MaxAge: 0,
-		Path: "/",
+		Name:     FLASHES_KEY,
+		Value:    "",
+		MaxAge:   0,
+		Path:     "/",
 		HttpOnly: true,
-		Secure: true,
+		Secure:   SECURE_COOKIE,
 	})
-	
+
 	return flashes, nil
 }
 
@@ -189,12 +188,12 @@ func addFlash(flash string, r *http.Request, w http.ResponseWriter) error {
 	encoded_flashes := base64.StdEncoding.EncodeToString([]byte(strings.Join(flashes, ";")))
 
 	http.SetCookie(w, &http.Cookie{
-		Name: FLASHES_KEY,
-		Value: encoded_flashes,
-		MaxAge: 0,
-		Path: "/",
+		Name:     FLASHES_KEY,
+		Value:    encoded_flashes,
+		MaxAge:   0,
+		Path:     "/",
 		HttpOnly: true,
-		Secure: true,
+		Secure:   SECURE_COOKIE,
 	})
 	return nil
 }
@@ -538,7 +537,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, "Couldn't create jwt", http.StatusInternalServerError)
 				return
 			}
-			
+
 			err = addFlash("You were logged in", r, w)
 			if err != nil {
 				log.Println(err)
@@ -656,7 +655,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
-			
+
 			err = addFlash("You were successfully registered and can login now", r, w)
 			if err != nil {
 				log.Println(err)
@@ -769,7 +768,6 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   SECURE_COOKIE,
 		HttpOnly: true,
 	})
-
 
 	err = addFlash("You were logged out", r, w)
 	if err != nil {
