@@ -17,8 +17,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
+
+	"minitwit/src/repository"
 
 	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
@@ -31,16 +34,17 @@ const (
 
 var latestValue int64
 
-func updateLatestIfProvided(latest int32) {
-	if latest <= 0 {
+var (
+	apiDB     *sql.DB
+	apiDBErr  error
+	apiDBInit sync.Once
+)
+
+func (s *MinitwitAPIService) updateLatestIfProvided(latest int32) {
+	err := s.latestRepo.UpdateLatest(latest)
+	if err != nil { // TODO: add error handling
 		return
-	}
-	for {
-		current := atomic.LoadInt64(&latestValue)
-		if atomic.CompareAndSwapInt64(&latestValue, current, int64(latest)) {
-			return
-		}
-	}
+	}       
 }
 
 func getLatest() int32 {
@@ -66,7 +70,22 @@ func getAPIDatabaseDSN() string {
 }
 
 func openDB() (*sql.DB, error) {
-	return sql.Open("postgres", getAPIDatabaseDSN())
+	// Use sync.Once to ensure that the database connection is initialized only once.
+	// This allows us to reuse the same connection for subsequent requests, improving performance and resource utilization.
+	apiDBInit.Do(func() {
+		apiDB, apiDBErr = sql.Open("postgres", getAPIDatabaseDSN())
+		if apiDBErr != nil {
+			return
+		}
+
+		if err := apiDB.Ping(); err != nil {
+			apiDBErr = err
+			_ = apiDB.Close()
+			apiDB = nil
+		}
+	})
+
+	return apiDB, apiDBErr
 }
 
 func getUserID(db *sql.DB, username string) (int64, error) {
@@ -83,11 +102,14 @@ func formatMessageTime(unixTimestamp int64) string {
 // This service should implement the business logic for every endpoint for the MinitwitAPI API.
 // Include any external packages or services that will be required by this service.
 type MinitwitAPIService struct {
+	latestRepo *repository.LatestRepository
 }
 
 // NewMinitwitAPIService creates a default api service
-func NewMinitwitAPIService() *MinitwitAPIService {
-	return &MinitwitAPIService{}
+func NewMinitwitAPIService(latestRepo *repository.LatestRepository) *MinitwitAPIService {
+	return &MinitwitAPIService{
+		latestRepo: latestRepo,
+	}
 }
 
 // GetFollow -
@@ -97,7 +119,7 @@ func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, aut
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -110,7 +132,6 @@ func (s *MinitwitAPIService) GetFollow(ctx context.Context, username string, aut
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
 
 	userID, err := getUserID(db, username)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -164,7 +185,7 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	db, err := openDB()
 	if err != nil {
@@ -173,7 +194,6 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
 
 	userID, err := getUserID(db, username)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -267,7 +287,11 @@ func (s *MinitwitAPIService) PostFollow(ctx context.Context, username string, au
 
 // GetLatestValue -
 func (s *MinitwitAPIService) GetLatestValue(ctx context.Context) (ImplResponse, error) {
-	return Response(http.StatusOK, LatestValue{Latest: getLatest()}), nil
+	latest, err := s.latestRepo.GetLatest()
+	if err != nil {
+		return Response(http.StatusInternalServerError, nil), err
+	}
+	return Response(http.StatusOK, LatestValue{Latest: latest}), nil
 }
 
 // GetMessages -
@@ -276,7 +300,7 @@ func (s *MinitwitAPIService) GetMessages(ctx context.Context, authorization stri
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -289,7 +313,6 @@ func (s *MinitwitAPIService) GetMessages(ctx context.Context, authorization stri
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
 
 	rows, err := db.Query(`
 		select message.text, message.pub_date, u.username
@@ -346,7 +369,7 @@ func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username st
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	if no < 0 {
 		no = 0
@@ -359,7 +382,6 @@ func (s *MinitwitAPIService) GetMessagesPerUser(ctx context.Context, username st
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
 
 	userID, err := getUserID(db, username)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -426,7 +448,7 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 	if !isAuthorized(authorization) {
 		return unauthorizedResponse()
 	}
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	db, err := openDB()
 	if err != nil {
@@ -435,7 +457,6 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
 
 	userID, err := getUserID(db, username)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -474,7 +495,7 @@ func (s *MinitwitAPIService) PostMessagesPerUser(ctx context.Context, username s
 // PostRegister -
 func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterRequest, latest int32) (ImplResponse, error) {
 	// TODO: Add api_minitwit_service.go to the .openapi-generator-ignore to avoid overwriting this service implementation when updating open api generation.
-	updateLatestIfProvided(latest)
+	s.updateLatestIfProvided(latest)
 
 	username := strings.TrimSpace(payload.Username)
 	email := strings.TrimSpace(payload.Email)
@@ -506,19 +527,6 @@ func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterR
 			ErrorMsg: err.Error(),
 		}), nil
 	}
-	defer db.Close()
-
-	if _, err := getUserID(db, username); err == nil {
-		return Response(http.StatusBadRequest, ErrorResponse{
-			Status:   http.StatusBadRequest,
-			ErrorMsg: "The username is already taken",
-		}), nil
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		return Response(http.StatusInternalServerError, ErrorResponse{
-			Status:   http.StatusInternalServerError,
-			ErrorMsg: err.Error(),
-		}), nil
-	}
 
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), 10)
 	if err != nil {
@@ -528,15 +536,32 @@ func (s *MinitwitAPIService) PostRegister(ctx context.Context, payload RegisterR
 		}), nil
 	}
 
-	if _, err := db.Exec(
-		`insert into "user" (username, email, pw_hash) values ($1, $2, $3)`,
+	result, err := db.Exec(
+		`insert into "user" (username, email, pw_hash)
+		 values ($1, $2, $3)
+		 on conflict (username) do nothing`,
 		username,
 		email,
 		string(passwordHash),
-	); err != nil {
+	)
+	if err != nil {
 		return Response(http.StatusInternalServerError, ErrorResponse{
 			Status:   http.StatusInternalServerError,
 			ErrorMsg: err.Error(),
+		}), nil
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return Response(http.StatusInternalServerError, ErrorResponse{
+			Status:   http.StatusInternalServerError,
+			ErrorMsg: err.Error(),
+		}), nil
+	}
+	if rowsAffected == 0 {
+		return Response(http.StatusBadRequest, ErrorResponse{
+			Status:   http.StatusBadRequest,
+			ErrorMsg: "The username is already taken",
 		}), nil
 	}
 
