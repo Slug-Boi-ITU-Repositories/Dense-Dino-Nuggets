@@ -10,6 +10,7 @@ import (
 	"html/template"
 	"log"
 	"math"
+	"minitwit/src/authentication"
 	"minitwit/src/db"
 	"minitwit/src/model"
 	"minitwit/src/repository"
@@ -32,22 +33,16 @@ import (
 	"gorm.io/gorm"
 )
 
-type User struct {
-	UserID   int
-	Username string
-	Email    string
-}
-
 type Message struct {
 	MessageID int
-	Author    *User
+	Author    *authentication.User
 	Text      string
 	PubTime   time.Time
 	Flagged   int
 }
 
 type BaseTemplateData struct {
-	User    *User
+	User    *authentication.User
 	Flashes []string
 }
 
@@ -71,10 +66,10 @@ type LoginData struct {
 type TimelineData struct {
 	BaseTemplateData
 	Messages    []model.Message
-	ProfileUser *User
+	ProfileUser *authentication.User
 	Follows     bool
 	Endpoint    string
-	Page 	    int
+	Page        int
 	TotalPages  int
 }
 
@@ -82,6 +77,8 @@ const PER_PAGE = 30
 const DEBUG = true
 const SECRET_KEY = "development key"
 const FLASHES_KEY = "flashes"
+
+var SECURE_COOKIE = true
 
 var store = sessions.NewCookieStore([]byte("your-secret-key-here-at-least-32-bytes"))
 
@@ -118,21 +115,17 @@ func getPageAndOffset(r *http.Request) (int, int) {
 	return page, offset
 }
 
-// Get the logged in user from the user session.
+// Get the logged in user from request context
 //
 // If the user pointer is nil and the error is nil then no user is logged in.
-func getUser(r *http.Request) (*User, error) {
-	user_session, err := store.Get(r, "user-session")
-	if err != nil {
-		return nil, err
-	}
-	if _, exists := user_session.Values["user"]; !exists {
+func getUser(r *http.Request) (*authentication.User, error) {
+	val := r.Context().Value(authentication.UserKey)
+	if val == nil {
 		return nil, nil
 	}
-	user := &User{}
-	err = json.Unmarshal(user_session.Values["user"].([]byte), user)
-	if err != nil {
-		return nil, err
+	user, ok := val.(*authentication.User)
+	if !ok {
+		return nil, fmt.Errorf("unable to assert type for User")
 	}
 	return user, nil
 }
@@ -387,7 +380,7 @@ func UserTimelineHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	userId := data.UserID
 	userEmail := data.Email
-	pageUser := &User{
+	pageUser := &authentication.User{
 		UserID:   int(userId),
 		Username: username,
 		Email:    userEmail,
@@ -511,13 +504,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user_session, err := store.Get(r, "user-session")
-		if err != nil {
-			log.Println(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
@@ -546,32 +532,29 @@ func login(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			// Convert model.User to User for session
-			user := User{
-				UserID:   int(modelUser.UserID),
-				Username: modelUser.Username,
-				Email:    modelUser.Email,
+			// Create jwt token for user
+			token, err := authentication.CreateToken(int(modelUser.UserID), modelUser.Username, modelUser.Email)
+			if err != nil {
+				http.Error(w, "Couldn't create jwt", http.StatusInternalServerError)
+				return
 			}
+			
 			err = addFlash("You were logged in", r, w)
 			if err != nil {
 				log.Println(err)
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
+			tokenCookie := &http.Cookie{
+				Name:     "token",
+				Value:    token,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   SECURE_COOKIE,
+				MaxAge:   86400, // 1 day in seconds
+			}
+			http.SetCookie(w, tokenCookie)
 
-			userJson, err := json.Marshal(user)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			user_session.Values["user"] = userJson
-			err = user_session.Save(r, w)
-			if err != nil {
-				log.Println(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
@@ -772,24 +755,20 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: Add logout message
 	if user == nil {
 		http.Error(w, "No user is logged in", http.StatusConflict)
 		return
 	}
-	user_session, err := store.Get(r, "user-session")
-	if err != nil {
-		log.Println(err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	delete(user_session.Values, "user")
-	err = user_session.Save(r, w)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+
+	// Clear jwt from cookies
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		MaxAge:   -1,
+		Path:     "/",
+		Secure:   SECURE_COOKIE,
+		HttpOnly: true,
+	})
 
 
 	err = addFlash("You were logged out", r, w)
@@ -843,12 +822,14 @@ func UnfollowUserHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	reg := prometheus.NewRegistry()
-	// reg.MustRegister(
+	// Check for insecure cookie setting
+	secure_cookie_env := os.Getenv("SECURE_COOKIE")
+	if secure_cookie_env == "insecure" {
+		log.Println("Running with insecure cookies!")
+		SECURE_COOKIE = false
+	}
 
-	// 	collectors.NewGoCollector(),
-	// 	collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-	// )
+	reg := prometheus.NewRegistry()
 
 	log.Printf("Server started")
 	store.Options = &sessions.Options{
@@ -867,7 +848,7 @@ func main() {
 		if err != nil {
 			log.Fatal("Error loading .env file: ", err)
 		}
-    
+
 		dsn = os.Getenv("DATABASE_URL")
 		if dsn == "" {
 			log.Fatal("DATABASE_URL environment variable is not set in environment or .env file!")
@@ -891,7 +872,7 @@ func main() {
 
 	router := openapi.NewRouter(MinitwitAPIController)
 	router.Use(monitor.MetricsMiddleware(monitor.NewMetrics(reg)))
-	
+
 	// Seed database with initial data if empty
 	var userCount int64
 	GormDB.Model(&model.User{}).Count(&userCount)
@@ -899,19 +880,18 @@ func main() {
 		init_db()
 	}
 	s := http.StripPrefix("/static/", http.FileServer(http.Dir("./static")))
-	router.Handle("/", openapi.Logger(http.HandlerFunc(timeline), "My timeline")).Methods("GET")
-	router.Handle("/public", openapi.Logger(http.HandlerFunc(public), "Public timeline")).Methods("GET")
-	router.Handle("/add_message", openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet")).Methods("POST")
-	router.Handle("/login", openapi.Logger(http.HandlerFunc(login), "Login")).Methods("GET", "POST")
-	router.Handle("/register-user", openapi.Logger(http.HandlerFunc(register), "Register User")).Methods("GET", "POST")
-	router.Handle("/logout", openapi.Logger(http.HandlerFunc(logoutHandler), "Logout")).Methods("GET")
+	router.Handle("/", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(timeline), "My timeline"))).Methods("GET")
+	router.Handle("/public", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(public), "Public timeline"))).Methods("GET")
+	router.Handle("/add_message", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(addMessage), "Posting tweet"))).Methods("POST")
+	router.Handle("/login", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(login), "Login"))).Methods("GET", "POST")
+	router.Handle("/register-user", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(register), "Register User"))).Methods("GET", "POST")
+	router.Handle("/logout", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(logoutHandler), "Logout"))).Methods("GET")
 	router.PathPrefix("/static/").Handler(s).Methods("GET")
 	router.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
 
-	router.Handle("/{username}/follow", openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following")).Methods("GET")
-	router.Handle("/{username}/unfollow", openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing")).Methods("GET")
-	router.Handle("/{username}", openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline")).Methods("GET")
-
+	router.Handle("/{username}/follow", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(FollowUserHandler), "Following"))).Methods("GET")
+	router.Handle("/{username}/unfollow", authentication.RequiredAuth(openapi.Logger(http.HandlerFunc(UnfollowUserHandler), "Unfollowing"))).Methods("GET")
+	router.Handle("/{username}", authentication.OptionalAuth(openapi.Logger(http.HandlerFunc(UserTimelineHandler), "User timeline"))).Methods("GET")
 
 	println(gravatar_url("augustbrandt170@gmail.com", 80))
 
