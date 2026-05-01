@@ -206,36 +206,36 @@ Vagrant.configure("2") do |config|
         export MONITOR_PUB_IP=$(cat /vagrant/monitor/monitor_pub_ip)
       fi
 
-      # echo "Check if monitor node id is set"
-      # if [ -z "${MONITOR_NODE_ID:-}" ]; then
-      #   # Setup Monitor VM using ssh
-      #   SWARM_WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
+      echo "Check if monitor node id is set"
+      if [ -z "${MONITOR_NODE_ID:-}" ]; then
+        # Setup Monitor VM using ssh
+        SWARM_WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
 
-      #   # Setup ssh-agent and keys
-      #   eval "$(ssh-agent -s)"
-      #   ssh-add /root/.ssh/id_monitor
+        # Setup ssh-agent and keys
+        eval "$(ssh-agent -s)"
+        ssh-add /root/.ssh/id_monitor
 
-      #   # Setup monitor machine using ssh
-      #   # ssh root@$MONITOR_IP
-      #   echo "ssh into monitor machine to setup node id get IP"
-      #   RESULT=$(ssh -o StrictHostKeyChecking=accept-new root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_IP bash -s" < /vagrant/monitor_setup.sh)
-      #   MONITOR_NODE_ID=$(echo $RESULT | awk '{print $1}')
-      #   MONITOR_PUB_IP=$(echo $RESULT | awk '{print $2}')
+        # Setup monitor machine using ssh
+        # ssh root@$MONITOR_IP
+        echo "ssh into monitor machine to setup node id get IP"
+        RESULT=$(ssh -o StrictHostKeyChecking=accept-new root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_IP bash -s" < /vagrant/monitor_setup.sh)
+        MONITOR_NODE_ID=$(echo $RESULT | awk '{print $1}')
+        MONITOR_PUB_IP=$(echo $RESULT | awk '{print $2}')
 
-      #   # Save information from machine
-      #   echo "Back from ssh"
-      #   mkdir -p /vagrant/monitor
-      #   echo "Saving monitor information to files on system"
-      #   echo $MONITOR_NODE_ID > /vagrant/monitor/monitor_node_id
-      #   echo $MONITOR_PUB_IP > /vagrant/monitor/monitor_pub_ip
-      # else 
-      #   echo "Monitor already added using saved ip and node id and moving on" 
-      # fi
+        # Save information from machine
+        echo "Back from ssh"
+        mkdir -p /vagrant/monitor
+        echo "Saving monitor information to files on system"
+        echo $MONITOR_NODE_ID > /vagrant/monitor/monitor_node_id
+        echo $MONITOR_PUB_IP > /vagrant/monitor/monitor_pub_ip
+      else 
+        echo "Monitor already added using saved ip and node id and moving on" 
+      fi
 
-      # if [ -n "$MONITOR_NODE_ID" ] && ! sudo docker node inspect $MONITOR_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
-      #   echo "Applying role=monitoring label to this node (ID: $MONITOR_NODE_ID)..."
-      #   docker node update --label-add role=monitoring $MONITOR_NODE_ID
-      # fi
+      if [ -n "$MONITOR_NODE_ID" ] && ! sudo docker node inspect $MONITOR_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
+        echo "Applying role=monitoring label to this node (ID: $MONITOR_NODE_ID)..."
+        docker node update --label-add role=monitoring $MONITOR_NODE_ID
+      fi
 
       # Copy compose file
       mkdir -p /home/vagrant
@@ -328,21 +328,14 @@ Vagrant.configure("2") do |config|
         sudo systemctl reload nginx
       fi
 
-      # Install certbot for TLS certificate management
-      if ! command -v snap >/dev/null 2>&1; then
-        sudo apt-get install -y snapd
-      fi
-      sudo systemctl enable --now snapd.socket
-      if ! sudo snap list core >/dev/null 2>&1; then
-        sudo snap install core
-      fi
-      sudo snap refresh core
-      if ! sudo snap list certbot >/dev/null 2>&1; then
-        sudo snap install --classic certbot
-      fi
+      # Install certbot via apt to avoid Snap Store dependency
+      sudo apt-get install -y certbot python3-certbot-nginx
 
-      # Create/update symlink for certbot
-      sudo ln -sfn /snap/bin/certbot /usr/bin/certbot
+      # Ensure certbot is available on PATH
+      if ! command -v certbot >/dev/null 2>&1; then
+        echo "ERROR: certbot is not available after apt install"
+        exit 1
+      fi
 
       # Allow necessary ports through the firewall
       sudo ufw allow 'Nginx Full'
