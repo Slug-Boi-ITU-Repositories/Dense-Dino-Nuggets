@@ -33,7 +33,6 @@ Vagrant.configure("2") do |config|
       override.vm.box = "utm/bookworm"
       u.memory = 2048
       u.cpus = 2
-      # UTM: upload to a guaranteed writable temp path
       override.vm.provision "file", source: "./docker-compose.yml", destination: "/tmp/docker-compose.yml"
       # UTM only: upload .env because shared folders are limited.
       if File.file?(env_file)
@@ -70,17 +69,21 @@ Vagrant.configure("2") do |config|
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
       provider.vm.provision "file", source: "./docker-compose.yml", destination: "/vagrant/docker-compose.yml"
+      provider.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
+      provider.vm.provision "file", source: "~/.ssh/id_monitor", destination: "/tmp/id_monitor"
     end
-
-    # Local port forwarding (ignored by DO)
+    server.vm.provision "file", source: "./scripts/monitor_setup.sh", destination: "/vagrant/monitor_setup.sh"
+    server.vm.provision "file", source: "~/.ssh/id_monitor", destination: "/tmp/id_monitor"
     server.vm.network "forwarded_port", guest: 8080, host: 8080
 
     # Copy nginx config directory from repo into VM (stage in /tmp, install in shell)
     server.vm.provision "file", source: "./nginx", destination: "/tmp/nginx"
 
-    # Provisioning
+    # Copy nginx config directory from repo into VM (stage in /tmp, install in shell)
+    server.vm.provision "file", source: "./nginx", destination: "/tmp/nginx"
+
     server.vm.provision "shell", env: {
-      "USERNAME" => ENV['DOCKER_USERNAME'] || ENV['USERNAME'] || "flakiator",
+      "DOCKER_USERNAME" => ENV['DOCKER_USERNAME'] || ENV['USERNAME'] || "flakiator",
       # Database credentials - NO DEFAULTS (must be set in host environment)
       "CONTAINER_NAME_PREFIX" => ENV['CONTAINER_NAME_PREFIX'],
       "POSTGRES_USER" => ENV['POSTGRES_USER'],
@@ -96,6 +99,7 @@ Vagrant.configure("2") do |config|
       "NOIP_PASSWORD" => ENV['NOIP_PASSWORD'],
       "NOIP_HOSTNAMES" => ENV['NOIP_HOSTNAMES'],
       "CERTBOT_EMAIL" => ENV['CERTBOT_EMAIL'],
+      "MONITOR_PUB_KEY" => ENV['MONITOR_PUB_KEY'],
       # Resource limits - WITH DEFAULTS
       "POSTGRES_CPU_LIMIT" => ENV['POSTGRES_CPU_LIMIT'] || "0.2",
       "POSTGRES_MEM_LIMIT" => ENV['POSTGRES_MEM_LIMIT'] || "300M",
@@ -112,14 +116,12 @@ Vagrant.configure("2") do |config|
       else
         IMAGE_NAME="minitwitimage"
       fi
-      DOCKER_IMAGE="$USERNAME/$IMAGE_NAME"
-      export DOCKER_USERNAME="${DOCKER_USERNAME:-$USERNAME}"
+      DOCKER_IMAGE="$DOCKER_USERNAME/$IMAGE_NAME"
+      export DOCKER_USERNAME="${DOCKER_USERNAME:-flakiator}"
       COMPOSE_FILE="docker-compose.yml"
       STACK_NAME="minitwit"
 
-
-      # Check that env vars that are not default valued are actually set
-      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP"
+      REQUIRED_VARS="POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DB POSTGRES_HOST MONITOR_IP MONITOR_PUB_KEY"
       for var in $REQUIRED_VARS; do
         if [ -z "${!var}" ]; then
           echo "ERROR: $var is not set. Please set it in .env or your host environment."
@@ -127,35 +129,30 @@ Vagrant.configure("2") do |config|
         fi
       done
 
-      # Docker installation
-      # sudo apt-get remove -y docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc 2>/dev/null || true
+      if [ -f /tmp/id_monitor ] && [ ! -f /root/.ssh/id_monitor ]; then
+        cp /tmp/id_monitor /root/.ssh/id_monitor
+        chmod 600 /root/.ssh/id_monitor
+      fi
+
+      if [ ! -f /root/.ssh/id_monitor ]; then
+        echo "private ssh key not copied or included please ensure the key is copied onto the machine before running again" 
+        exit 1
+      fi 
 
       sudo apt-get update -y
       sudo apt-get install -y ca-certificates curl gnupg lsb-release
 
-      # Only add GPG key and repository if not already present
       if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
         echo "Setting up Docker's GPG key and repository (first time only)..."
-        
-        # Create keyrings directory
         sudo install -m 0755 -d /etc/apt/keyrings
-        
-        # Add Docker's GPG key
         curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
         sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-        # Add Docker repository
         CODENAME=$(lsb_release -cs)
         if [ "$CODENAME" = "bookworm" ]; then
           CODENAME="bullseye"
         fi
-
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
         sudo apt-get update -y
-        
-
         echo "Docker repository configured"
       else
         echo "Docker GPG key already exists, skipping repository setup"
@@ -174,38 +171,77 @@ Vagrant.configure("2") do |config|
       if sudo docker plugin inspect loki >/dev/null 2>&1; then
         sudo docker plugin enable loki >/dev/null 2>&1 || true
       fi
-  
-      echo "Checking Docker Swarm status..."
-      if ! sudo docker info | grep "Swarm: active"; then
-        echo "Swarm not active. Initializing..."
-        # Get the main IP address (not localhost)
-        SWARM_IP=$(hostname -I | awk '{print $1}')
-        sudo docker swarm init --advertise-addr $SWARM_IP
-      else
-        echo "Swarm is active"
-        # Check if this node is a manager
-        if ! sudo docker node ls 2>/dev/null | grep -q "Leader"; then
-          echo "This node is not a manager. Attempting to make it a manager..."
-          # If it's a worker, we need to promote it (requires manager access)
-          # This might fail if we don't have manager access, so we'll reinit if needed
-          sudo docker swarm leave --force
-          sudo docker swarm init --advertise-addr $(hostname -I | awk '{print $1}')
-        fi
+
+      echo "Checking ssh keys"
+      if ! grep "${MONITOR_PUB_KEY}" /root/.ssh/authorized_keys; then 
+        echo "Adding pub key"
+        echo "${MONITOR_PUB_KEY}" >> /root/.ssh/authorized_keys 
+      else 
+        echo "Pub key already added to system" 
       fi
 
-      # Verify swarm status
-      sudo docker node ls || {
-        echo "ERROR: Still not able to access swarm. Reinitializing..."
-        sudo docker swarm leave --force 2>/dev/null || true
-        sudo docker swarm init --advertise-addr $(hostname -I | awk '{print $1}')
-      }
+      # --- SWARM SETUP (MANAGER) ---
+      echo "Checking Docker Swarm status..."
+      SWARM_IP=$(hostname -I | awk '{print $1}')
+
+      if ! sudo docker info | grep "Swarm: active"; then
+        echo "Swarm not active. Initializing as manager..."
+        sudo docker swarm init --advertise-addr $SWARM_IP
+      elif sudo docker info | grep -q "Is Manager: false"; then
+        echo "Node is a worker in another swarm. Leaving and reinitializing as manager..."
+        sudo docker swarm leave --force
+        sudo docker swarm init --advertise-addr $SWARM_IP
+      else
+        echo "Already an active swarm manager, skipping init"
+      fi
+
+      # Label this node as the app node for placement constraints
+      if ! sudo docker node inspect $(sudo docker node ls --format '{{.ID}}' --filter role=manager) --format '{{.Spec.Labels}}' | grep -q "role=app"; then
+        sudo docker node update --label-add role=app $(sudo docker node ls --format '{{.ID}}' --filter role=manager)
+      fi
+
+      # Load monitor_node if it exists
+      if [ -f /vagrant/monitor/monitor_node_id ]; then 
+        export MONITORING_NODE_ID=$(cat /vagrant/monitor/monitor_node_id)
+        export MONITOR_PUB_IP=$(cat /vagrant/monitor/monitor_pub_ip)
+      fi
+
+      echo "Check if monitor node id is set"
+      if [ -z "${MONITOR_NODE_ID:-}" ]; then
+        # Setup Monitor VM using ssh
+        SWARM_WORKER_TOKEN=$(sudo docker swarm join-token -q worker)
+
+        # Setup ssh-agent and keys
+        eval "$(ssh-agent -s)"
+        ssh-add /root/.ssh/id_monitor
+
+        # Setup monitor machine using ssh
+        # ssh root@$MONITOR_IP
+        echo "ssh into monitor machine to setup node id get IP"
+        RESULT=$(ssh -o StrictHostKeyChecking=accept-new root@$MONITOR_IP "SWARM_WORKER_TOKEN=$SWARM_WORKER_TOKEN SWARM_MANAGER_IP=$SWARM_IP bash -s" < /vagrant/monitor_setup.sh)
+        MONITOR_NODE_ID=$(echo $RESULT | awk '{print $1}')
+        MONITOR_PUB_IP=$(echo $RESULT | awk '{print $2}')
+
+        # Save information from machine
+        echo "Back from ssh"
+        mkdir -p /vagrant/monitor
+        echo "Saving monitor information to files on system"
+        echo $MONITOR_NODE_ID > /vagrant/monitor/monitor_node_id
+        echo $MONITOR_PUB_IP > /vagrant/monitor/monitor_pub_ip
+      else 
+        echo "Monitor already added using saved ip and node id and moving on" 
+      fi
+
+      if [ -n "$MONITOR_NODE_ID" ] && ! sudo docker node inspect $MONITOR_NODE_ID --format '{{.Spec.Labels}}' | grep -q "role=monitoring"; then
+        echo "Applying role=monitoring label to this node (ID: $MONITOR_NODE_ID)..."
+        docker node update --label-add role=monitoring $MONITOR_NODE_ID
+      fi
+
       # Copy compose file
       mkdir -p /home/vagrant
       if [ -f /vagrant/$COMPOSE_FILE ]; then
-        # DO/VirtualBox/libvirt path (existing behavior)
         cp /vagrant/$COMPOSE_FILE /home/vagrant/
       elif [ -f /tmp/$COMPOSE_FILE ]; then
-        # UTM fallback path
         cp /tmp/$COMPOSE_FILE /home/vagrant/
       else
         echo "ERROR: Could not find $COMPOSE_FILE in /vagrant or /tmp"
@@ -222,11 +258,7 @@ Vagrant.configure("2") do |config|
         if ! grep -q "$VOLUME_DEVICE" /etc/fstab; then
           echo "$VOLUME_DEVICE $VOLUME_MOUNT ext4 defaults,nofail 0 2" | sudo tee -a /etc/fstab
         fi
-        
-        # Set proper permissions for Docker volume
-        sudo chown -R 999:999 "$VOLUME_MOUNT" 
-        
-        # Create a docker volume that uses this mount
+        sudo chown -R 999:999 "$VOLUME_MOUNT"
         sudo docker volume create \
           --driver local \
           --opt type=none \
@@ -296,21 +328,14 @@ Vagrant.configure("2") do |config|
         sudo systemctl reload nginx
       fi
 
-      # Install certbot for TLS certificate management
-      if ! command -v snap >/dev/null 2>&1; then
-        sudo apt-get install -y snapd
-      fi
-      sudo systemctl enable --now snapd.socket
-      if ! sudo snap list core >/dev/null 2>&1; then
-        sudo snap install core
-      fi
-      sudo snap refresh core
-      if ! sudo snap list certbot >/dev/null 2>&1; then
-        sudo snap install --classic certbot
-      fi
+      # Install certbot via apt to avoid Snap Store dependency
+      sudo apt-get install -y certbot python3-certbot-nginx
 
-      # Create/update symlink for certbot
-      sudo ln -sfn /snap/bin/certbot /usr/bin/certbot
+      # Ensure certbot is available on PATH
+      if ! command -v certbot >/dev/null 2>&1; then
+        echo "ERROR: certbot is not available after apt install"
+        exit 1
+      fi
 
       # Allow necessary ports through the firewall
       sudo ufw allow 'Nginx Full'
@@ -334,7 +359,7 @@ Vagrant.configure("2") do |config|
       
       # - - - - - - - End of TLS Setup - - - - - - -
 
-      # Create a processed compose file with variables substituted
+
       envsubst < /home/vagrant/$COMPOSE_FILE > /home/vagrant/docker-compose.processed.yml
 
       # Force app image to match architecture-specific image selection.
@@ -356,97 +381,72 @@ Vagrant.configure("2") do |config|
         mv /home/vagrant/docker-compose.processed.tmp.yml /home/vagrant/docker-compose.processed.yml
       fi
 
-      # Check if stack exists
+      # Force app image to match architecture-specific image selection.
+      sed -i "s#/minitwitimage:latest#/$IMAGE_NAME:latest#g" /home/vagrant/docker-compose.processed.yml
+
+      # Some platforms (notably UTM/arm64) may have a present but unusable loki plugin.
+      # If loki is not enabled, remove only minitwit's logging block so stack deploy can proceed.
+      LOKI_PLUGIN_ENABLED="$(sudo docker plugin inspect loki --format '{{.Enabled}}' 2>/dev/null || echo false)"
+      if [ "$LOKI_PLUGIN_ENABLED" != "true" ]; then
+        echo "Loki plugin is not enabled/healthy. Removing loki logging config from minitwit service for this deployment."
+        awk '
+          /^  minitwit:/ {in_minitwit=1}
+          /^  [a-zA-Z0-9_-]+:/ && $0 !~ /^  minitwit:/ {in_minitwit=0}
+          in_minitwit && /^    logging:/ {skip_logging=1; next}
+          skip_logging && /^    [a-zA-Z0-9_-]+:/ {skip_logging=0}
+          skip_logging {next}
+          {print}
+        ' /home/vagrant/docker-compose.processed.yml > /home/vagrant/docker-compose.processed.tmp.yml
+        mv /home/vagrant/docker-compose.processed.tmp.yml /home/vagrant/docker-compose.processed.yml
+      fi
+
       cd /home/vagrant
       if sudo docker stack ls | grep -q "$STACK_NAME"; then
         echo "Stack $STACK_NAME already exists. Performing rolling update..."
-        
-        # Pull the latest image
-        echo "Pulling latest image: $DOCKER_IMAGE"
-        sudo docker pull $DOCKER_IMAGE 
-        
-        
-        # Update the service with rolling update
-        echo "Starting rolling update of minitwit service..."
-        # sudo docker service update \
-        #   --image $DOCKER_IMAGE \
-        #   --force \
-        #   --update-parallelism 1 \
-        #   --update-delay 10s \
-        #   --update-order start-first \
-        #   --update-failure-action rollback \
-        #   ${STACK_NAME}_minitwit
-
+        sudo docker pull $DOCKER_IMAGE
         sudo docker stack deploy \
           --compose-file /home/vagrant/docker-compose.processed.yml \
           --with-registry-auth \
           --prune \
           $STACK_NAME
-        
-        # Monitor the update
         echo "Monitoring rolling update..."
         sleep 5
         sudo docker service ps ${STACK_NAME}_minitwit
-        
-        echo "Rolling update initiated! You can monitor with:"
-        echo "  docker service ps ${STACK_NAME}_minitwit"
-        echo "  docker service logs ${STACK_NAME}_minitwit -f"
-        
       else
         echo "Stack $STACK_NAME not found. Deploying for first time..."
-        
-        # Pull images
-        echo "Pulling latest images..."
         sudo docker pull $DOCKER_IMAGE
         sudo docker pull postgres:15-alpine
-        
-        # Deploy the stack using the processed compose file
         echo "Deploying Minitwit stack to Swarm..."
         sudo docker stack deploy -c /home/vagrant/docker-compose.processed.yml $STACK_NAME
-        
-        # Wait for services to start
         echo "Waiting for services to start..."
         sleep 15
-        
-        # Show PostgreSQL logs to verify it started correctly
         echo "PostgreSQL container logs:"
         sudo docker service logs ${STACK_NAME}_postgres --tail 20
       fi
 
-      # DATABASE MIGRATION COMMAND GOES HERE
-
-
-      # Check final status
       echo "Stack services:"
       sudo docker stack services $STACK_NAME
-
       echo "Stack ps:"
       sudo docker stack ps $STACK_NAME
 
-      # Get the IP for accessing the services
       IP=$(hostname -I | awk '{print $1}')
-
       echo "===================================="
       echo "Minitwit deployed as Docker Swarm stack!"
       echo "===================================="
-      echo "Minitwit app: http://$IP:8080 (available on all swarm nodes)"
-      echo "PostgreSQL is running as a container in the stack"
-      echo ""
-      echo "Stack name: $STACK_NAME"
-      echo "Services:"
-      sudo docker stack services $STACK_NAME --format "table {{.Name}}\t{{.Replicas}}\t{{.Ports}}"
-      echo ""
-      echo "Rolling update config (from compose file):"
-      echo "  - Parallelism: 1 container at a time"
-      echo "  - Delay: 10s between updates"
-      echo "  - Order: start-first (new starts before old stops)"
-      echo "  - Failure action: rollback"
+      echo "Minitwit app: http://$IP:8080"
       echo ""
       echo "Swarm commands:"
-      echo "  docker stack services $STACK_NAME           # List services"
-      echo "  docker stack ps $STACK_NAME                 # List tasks"
-      echo "  docker service logs ${STACK_NAME}_minitwit  # View app logs"
-      echo "  docker service logs ${STACK_NAME}_postgres  # View postgres logs"
+      echo "  docker stack services $STACK_NAME"
+      echo "  docker stack ps $STACK_NAME"
+      echo "  docker service logs ${STACK_NAME}_minitwit"
+      echo "  docker service logs ${STACK_NAME}_postgres"
+      echo ""
+      echo "===================================="
+      echo "Monitor deployed and running!"
+      echo "===================================="
+      echo "Access Prometheus at: http://$MONITOR_PUB_IP:9090"
+      echo "Access Grafana at: http://$MONITOR_PUB_IP:3000"
+      echo "Access Loki at: http://$MONITOR_PUB_IP:3100"
 SHELL
   end
 
@@ -474,7 +474,7 @@ SHELL
       override.vm.box_url = "https://github.com/devopsgroup-io/vagrant-digitalocean/raw/master/box/digital_ocean.box"
       provider.token = ENV["DIGITAL_OCEAN_TOKEN"]
       provider.ssh_key_name = ENV["SSH_KEY_NAME"]
-      override.ssh.private_key_path = '~/.ssh/devops_rsa'
+      override.ssh.private_key_path = '~/.ssh/monitor_id'
       provider.image = "ubuntu-22-04-x64"
       provider.region = "fra1"
       provider.size = "s-1vcpu-1gb"
@@ -483,64 +483,25 @@ SHELL
     monitor.vm.network "forwarded_port", guest: 3000, host: 3000   # Grafana
     monitor.vm.network "forwarded_port", guest: 9090, host: 9090   # Prometheus
     monitor.vm.network "forwarded_port", guest: 3100, host: 3100   # Loki
-    monitor.vm.provision "file", source: "./docker-compose-monitoring.yml", destination: "./docker-compose.yml"
     monitor.vm.provision "file", source: "./prometheus/prometheus_prod.yml", destination: "./prometheus/prometheus_prod.yml"
     monitor.vm.provision "file", source: "./loki/loki-config.yml", destination: "./loki/loki-config.yml"
     monitor.vm.provision "file", source: "./grafana", destination: "./grafana"
-    monitor.vm.provision "shell", inline: <<-SHELL
-      sudo apt-get update -y
-      sudo apt-get install -y ca-certificates curl gnupg lsb-release
-      
-      # Uninstall conflicting packages
-      sudo apt remove --ignore-missing $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
-      
-      # Only add GPG key and repository if not already present
-      if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-        echo "Setting up Docker's GPG key and repository (first time only)..."
-        
-        # Create keyrings directory
-        sudo install -m 0755 -d /etc/apt/keyrings
-        
-        # Add Docker's GPG key
-        curl -fsSL https://download.docker.com/linux/$(. /etc/os-release && echo "$ID")/gpg | sudo gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
-        sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    monitor.vm.provision "file", source: "~/.ssh/id_monitor", destination: "/root/.ssh/id_monitor"
 
-        # Add Docker repository
-        CODENAME=$(lsb_release -cs)
-        if [ "$CODENAME" = "bookworm" ]; then
-          CODENAME="bullseye"
-        fi
+    monitor.vm.provision "shell", env: {
+      "SSH_PUB_KEY" => ENV['SSH_PUB_KEY'],
+    }, inline: <<-SHELL
+    set -euo pipefail
 
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$(. /etc/os-release && echo "$ID") $CODENAME stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    if [ -z "${SSH_PUB_KEY}" ]; then
+      echo "ERROR: SSH_PUB_KEY is not set. Please set it in your host environment."
+      exit 1
+    fi
 
-        sudo apt-get update -y
-        
-        echo "Docker repository configured"
-      else
-        echo "Docker GPG key already exists, skipping repository setup"
-      fi
-
-      # Update package list again (for some reason it won't work if we don't)
-      sudo apt-get update
-
-      # Docker engine
-      sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      
-      mkdir -p ./prometheus_data
-      sudo chown -R 65534:65534 ./prometheus_data # Set correct user perms for prometheus
-      mkdir -p ./grafana_data
-      sudo chown -R 472:472 ./grafana_data # Set correct user perms for grafana
-      sudo docker compose --profile prod down
-      sudo docker compose --profile prod up -d
-      
-      echo "===================================="
-      echo "Monitor deployed and running!"
-      echo "===================================="
-
-      IP=$(hostname -I | awk '{print $1}')
-      echo "Access Prometheus at: http://$IP:9090"    
-      echo "Access Grafana at: http://$IP:3000"
+    if ! grep -qF "$SSH_PUB_KEY" /root/.ssh/authorized_keys; then
+      echo "$SSH_PUB_KEY" >> /root/.ssh/authorized_keys
+    fi
+    
     SHELL
   end
 end

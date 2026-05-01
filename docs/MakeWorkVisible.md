@@ -49,3 +49,7 @@ We have started Refactoring minitwit from Python to Golang.
 ## 19/03
 
 This was the big DB migration night, we ended up writing a long document outlining what happened during this move and how it was all orchistrated. This file can be found in this folder under the name of `TheBigDBMigration.md`.
+
+## 21/04
+The big swarm manager convergance migration. There is a seperate markdown file named `SwarmMigration.md` that outlines exactly how this came to be and what our measured downtime was.
+
