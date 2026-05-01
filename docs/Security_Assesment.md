@@ -35,7 +35,7 @@ The following is a risk assessment of our Minitwit application.
 |---------------------------|---------------|---------------|
 | Backend API               | External attackers, Malicious users | Attacker exploits an injection vulnerability in an API endpoint to access or modify user data in the database. |
 | PostgreSQL database       | External attackers, Malicious insiders | Stolen credentials or misconfiguration allows for direct database access |
-| Session tokens| External attackers | Attacker exploits XSS or insecure cookies to steal session tokens and hijack user accounts |
+| Session tokens| External attackers | Attacker exploits insecure cookies and the fact that we use http to steal session tokens and hijack user accounts |
 | Docker Swarm infrastructure | Attackers, misconfiguration | An exposed swarm manager would allow for full cluster takeover |
 | Monitoring system | External attackers | Unauthorized access to Grafana exposes internal service endpoints, system metrics, and logs, aiding further attacks |
 | DigitalOcean droplets | External attackers, leaked SSH key, weak firewall | Unauthorized SSH access leads to full server compromise |
@@ -79,15 +79,15 @@ Risk Score = Likelihood × Impact
 
 | Asset | Scenario | Likelihood | Impact | Score | Risk Level | Mitigation Strategy |
 |-------|----------|------------|--------|-------|------------|---------------------|
-| Backend API | Injection vulnerability | 3 | 3 | 9 | Critical | Use GORM (ORM) with parameterized queries, input validation |
+| Backend API | Injection vulnerability | 1 | 3 | 9 | Critical | Use GORM (ORM) with parameterized queries, input validation, and escaping html input |
 | PostgreSQL database | Credential compromise | 2 | 3 | 6 | High | Restrict database access to internal network, use strong credentials, do not expose database publicly |
 | Session tokens | Token theft | 2 | 3 | 6 | High | Use secure cookies, HTTPS, short expiry |
 | Docker Swarm | Cluster takeover | 2 | 3 | 6 | High | Do not expose Swarm manager, restrict access via firewall, secure configuration |
 | Monitoring system | Exposure of information | 2 | 2 | 4 | Medium | Require authentication for dashboards, limit access |
-| DigitalOcean droplets | SSH compromise | 2 | 3 | 6 | High | Use SSH key-based authentication, apply firewall restrictions |
-| Secrets/config | Credential leak | 3 | 3 | 9 | Critical | Store secrets securely - "Secrets belpng in vaults", Use enviroment variables |
-| Ingress | Service exposure | 2 | 3 | 6 | High | Restrict public endpoints |
-| User credentials | Weak hashing | 2 | 3 | 6 | High | Use strong hashing + salting |
+| DigitalOcean droplets | SSH compromise | 1 | 3 | 6 | High | Use SSH key-based authentication, apply firewall restrictions |
+| Secrets/config | Credential leak | 1 | 3 | 9 | Critical | Store secrets securely - "Secrets belpng in vaults", Use enviroment variables |
+| Ingress | Service exposure | 2 | 2 | 4 | High | Stop exposing ports that should not be exposed publically |
+| User credentials | Weak hashing | 1 | 3 | 6 | High | Use strong hashing + salting |
 
 ### Additional points
 
