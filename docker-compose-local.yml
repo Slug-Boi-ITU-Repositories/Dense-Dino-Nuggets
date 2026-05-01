@@ -90,6 +90,7 @@ services:
 
   minitwit:
     image: minitwitutmimage:latest
+    build: .
     # ports:
     #   - "8080:8080"
     # SWARM PORTS (uncomment for swarm deployment, comment out local ports above)
