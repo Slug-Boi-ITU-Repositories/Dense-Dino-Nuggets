@@ -1,0 +1,64 @@
+# Structure
+# hosts
+# vars (set up env vars)
+# pre-tasks (check env vars are set and select docker image)
+# tasks ()
+# handlers (restarts nginx)
+
+---
+- name: Provision and deploy Minitwit application server
+  hosts: localhost # TODO change this
+  become: yes
+  vars: 
+    docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
+    
+    # Database credentials
+    container_name_prefix: "{{ lookup('env', 'CONTAINER_NAME_PREFIX') }}"
+    postgres_user: "{{ lookup('env', 'POSTGRES_USER') }}"
+    postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') }}"
+    postgres_db: "{{ lookup('env', 'POSTGRES_DB') }}"
+    postgres_host: "{{ lookup('env', 'POSTGRES_HOST') }}"
+    postgres_port: "{{ lookup('env', 'POSTGRES_PORT') }}"
+    db_ssl_mode: "{{ lookup('env', 'DB_SSL_MODE') }}"
+    volume_mount: "{{ lookup('env', 'VOLUME_MOUNT') | default('/mnt/pgdata', true) }}"
+    monitor_ip: "{{ lookup('env', 'MONITOR_IP') }}"
+
+   # No-IP / TLS / monitor values.
+    noip_username: "{{ lookup('env', 'NOIP_USERNAME') }}"
+    noip_password: "{{ lookup('env', 'NOIP_PASSWORD') }}"
+    noip_hostnames: "{{ lookup('env', 'NOIP_HOSTNAMES') }}"
+    certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') }}"
+    monitor_pub_key: "{{ lookup('env', 'MONITOR_PUB_KEY') }}"
+    
+    # Resource limits
+    postgres_cpu_limit: "{{ lookup('env', 'POSTGRES_CPU_LIMIT') | default('0.2', true) }}"
+    postgres_mem_limit: "{{ lookup('env', 'POSTGRES_MEM_LIMIT') | default('300M', true) }}"
+    app_replicas: "{{ lookup('env', 'APP_REPLICAS') | default('2', true) }}"
+    app_cpu_limit: "{{ lookup('env', 'APP_CPU_LIMIT') | default('0.2', true) }}"
+    app_mem_limit: "{{ lookup('env', 'APP_MEM_LIMIT') | default('256M', true) }}" 
+
+    volume_device: /dev/sda
+    compose_file: docker-compose.yml
+    stack_name: minitwit
+    noip_image: ghcr.io/noipcom/noip-duc:3.3.0
+    noip_container: noip-duc
+    noip_env_file: /home/vagrant/.env
+    monitor_state_dir: /vagrant/monitor
+
+  pre_tasks:
+    - name: Select architecture-specific image
+      ansible.builtin.set_fact:
+        image_name: 
+
+  tasks:
+    - name: Update apt cache and install Nginx
+      apt:
+        name: ngnix
+        state: latest # Dunno if this should be here
+        update_cache: yes
+  
+  handlers:
+    - name: Restart Nginx
+      service: 
+        name: ngnx
+        state: restarted
