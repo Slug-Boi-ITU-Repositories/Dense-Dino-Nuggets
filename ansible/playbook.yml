@@ -46,9 +46,27 @@
     monitor_state_dir: /vagrant/monitor
 
   pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - postgres_user | length > 0
+          - postgres_password | length > 0
+          - postgres_db | length > 0
+          - postgres_host | length > 0
+          - monitor_ip | length > 0
+          - monitor_pub_key | length > 0
+        fail_msg: >-
+          One or more required variables are missing. Required:
+          POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST,
+          MONITOR_IP, MONITOR_PUB_KEY.
+    
     - name: Select architecture-specific image
       ansible.builtin.set_fact:
-        image_name: 
+        image_name: "{{ 'minitwitutmimage' if ansible_architecture in ['aarch64', 'arm64'] else 'minitwitimage' }}"
+
+    - name: Set Docker image name
+      ansible.builtin.set_fact:
+        docker_image: "{{ docker_username }}/{{ image_name }}"
 
   tasks:
     - name: Update apt cache and install Nginx
@@ -57,6 +75,141 @@
         state: latest # Dunno if this should be here
         update_cache: yes
   
+    - name: Ensure root SSH directory exists
+      ansible.builtin.file:
+        path: /root/.ssh
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Check for monitor private key in /tmp
+      ansible.builtin.stat:
+        path: /tmp/id_monitor
+      register: tmp_monitor_key
+
+    - name: Check for monitor private key in /root
+      ansible.builtin.stat:
+        path: /root/.ssh/id_monitor
+      register: root_monitor_key
+
+    - name: Copy monitor private key from /tmp when needed
+      ansible.builtin.copy:
+        src: /tmp/id_monitor
+        dest: /root/.ssh/id_monitor
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      when:
+        - tmp_monitor_key.stat.exists
+        - not root_monitor_key.stat.exists
+
+    - name: Verify monitor private key exists
+      ansible.builtin.stat:
+        path: /root/.ssh/id_monitor
+      register: monitor_key 
+
+    - name: Fail when monitor private key is missing
+      ansible.builtin.fail:
+        msg: private ssh key not copied or included; copy it to /tmp/id_monitor or /root/.ssh/id_monitor before running again
+      when: not monitor_key.stat.exists
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - gettext-base
+        state: present
+        update_cache: true
+
+    - name: Ensure apt keyring directory exists
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        owner: root
+        group: root
+        mode: "0755" 
+
+    - name: Configure Docker apt repository
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
+          curl -fsSL "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg" \
+            | gpg --batch --no-tty --dearmor -o /etc/apt/keyrings/docker.gpg
+          chmod a+r /etc/apt/keyrings/docker.gpg
+        fi
+
+        CODENAME="{{ ansible_distribution_release }}"
+        if [ "$CODENAME" = "bookworm" ]; then
+          CODENAME="bullseye"
+        fi
+
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/{{ ansible_distribution | lower }} $CODENAME stable" \
+          > /etc/apt/sources.list.d/docker.list
+      args:
+        executable: /bin/bash
+        creates: /etc/apt/sources.list.d/docker.list
+      register: docker_repo
+
+    - name: Install Docker, Compose plugin, and pgloader
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - pgloader
+        state: present
+
+    - name: Check installed Docker plugins
+      ansible.builtin.command: docker plugin ls --format '{{ "{{.Name}}" }}'
+      register: docker_plugins
+      changed_when: false
+
+    - name: Install Loki Docker logging plugin
+      ansible.builtin.command:
+        argv:
+          - docker
+          - plugin
+          - install
+          - grafana/loki-docker-driver:latest
+          - --alias
+          - loki
+          - --grant-all-permissions
+      register: loki_install
+      failed_when: false
+      changed_when: loki_install.rc == 0
+      when: "'loki' not in docker_plugins.stdout_lines"
+
+    - name: Inspect Loki plugin
+      ansible.builtin.command:
+        argv:
+          - docker
+          - plugin
+          - inspect
+          - loki
+      register: loki_inspect
+      failed_when: false
+      changed_when: false
+
+    - name: Enable Loki plugin when present
+      ansible.builtin.command:
+        argv:
+          - docker
+          - plugin
+          - enable
+          - loki
+      register: loki_enable
+      failed_when: false
+      changed_when: loki_enable.rc == 0
+      when: loki_inspect.rc == 0
+
+
   handlers:
     - name: Restart Nginx
       service: 
