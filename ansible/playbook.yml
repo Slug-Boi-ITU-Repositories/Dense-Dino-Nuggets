@@ -39,6 +39,8 @@
 
     volume_device: /dev/sda
     compose_file: docker-compose.yml
+    compose_src: docker-compose.yml.j2
+    compose_dest: /home/vagrant/docker-compose.processed.yml
     stack_name: minitwit
     noip_image: ghcr.io/noipcom/noip-duc:3.3.0
     noip_container: noip-duc
@@ -508,7 +510,7 @@
         - noip_password | default('') | length > 0
         - noip_hostnames | default('') | length > 0
 
-      # Certbot
+    # Certbot
     - name: Obtain or renew TLS certificate
       ansible.builtin.command: >
         certbot --nginx --non-interactive
@@ -521,6 +523,76 @@
         - certbot_email | default('') | length > 0
         - noip_hostnames | default('') | length > 0
  
+    # Render Docker Compose file
+    - name: Render Docker Compose from template
+      ansible.builtin.template:
+        src: "{{ compose_src }}"
+        dest: "{{ compose_dest }}"
+        mode: "0644"
+
+    # Fix image name (if needed)
+    - name: Ensure correct image is used
+      ansible.builtin.replace:
+        path: "{{ compose_dest }}"
+        regexp: "minitwitimage:latest"
+        replace: "{{ image_name }}:latest"
+
+    # Check Loki plugin
+    - name: Check if Loki plugin is enabled
+      ansible.builtin.command: docker plugin inspect loki --format '{{ "{{.Enabled}}" }}'
+      register: loki_enabled
+      failed_when: false
+      changed_when: false
+
+    # Remove logging block if Loki missing
+    - name: Remove Loki logging config if unavailable
+      ansible.builtin.replace:
+        path: "{{ compose_dest }}"
+        regexp: '(?ms)minitwit:.*?logging:.*?(?=\n\s{2}[a-zA-Z0-9_-]+:)'
+        replace: '\g<0>'
+      when: loki_enabled.stdout != "true" 
+
+    # Pull required images
+    - name: Pull application image
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        source: pull
+
+    - name: Pull PostgreSQL image (initial deployment)
+      community.docker.docker_image:
+        name: postgres:15-alpine
+        source: pull       
+
+    # Deploy stack
+    - name: Deploy Docker Swarm stack
+      ansible.builtin.command: >
+        docker stack deploy
+        --compose-file {{ compose_dest }} 
+        --with-registry-auth
+        --prune
+        {{ stack_name }}
+
+    # Lil' pause for things to do their thang
+    - name: Wait for services to settle
+      ansible.builtin.pause:
+        seconds: 10    
+
+    # Show status
+    - name: Show stack services
+      ansible.builtin.command: docker stack services {{ stack_name }}
+      changed_when: false
+
+    - name: Show stack tasks
+      ansible.builtin.command: docker stack ps {{ stack_name }}
+      changed_when: false
+
+    - name: Print deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "Minitwit running at http://{{ swarm_ip }}:8080"
+          - "Prometheus: http://{{ monitor_pub_ip | default('UNKNOWN') }}:9090"
+          - "Grafana: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3000"
+          - "Loki: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3100" 
 
   handlers:
     - name: Restart Nginx
