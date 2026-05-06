@@ -7,9 +7,9 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: localhost # TODO change this
-  become: yes
-  vars: 
+  hosts: localhost # TODO change this # Which machines to run on
+  become: yes # Run commands as sudo when true
+  vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
     
     # Database credentials
@@ -69,6 +69,7 @@
         docker_image: "{{ docker_username }}/{{ image_name }}"
 
   tasks:
+    # Remove?
     - name: Update apt cache and install Nginx
       apt:
         name: ngnix
@@ -155,6 +156,11 @@
         creates: /etc/apt/sources.list.d/docker.list
       register: docker_repo
 
+    - name: Refresh apt cache after Docker repository setup
+      ansible.builtin.apt:
+        update_cache: true
+      when: docker_repo.changed
+
     - name: Install Docker, Compose plugin, and pgloader
       ansible.builtin.apt:
         name:
@@ -209,7 +215,235 @@
       changed_when: loki_enable.rc == 0
       when: loki_inspect.rc == 0
 
+    - name: Authorize monitor public SSH key for root
+      ansible.builtin.lineinfile:
+        path: /root/.ssh/authorized_keys
+        line: "{{ monitor_pub_key }}"
+        create: true
+        owner: root
+        group: root
+        mode: "0600"
 
+    - name: Check Docker Swarm state
+      ansible.builtin.command:
+        argv:
+          - docker
+          - info
+          - --format
+          - '{{ "{{json .Swarm}}" }}'
+      register: swarm_info_raw
+      changed_when: false
+
+    - name: Parse Docker Swarm state
+      ansible.builtin.set_fact:
+        swarm_info: "{{ swarm_info_raw.stdout | from_json }}"
+        swarm_ip: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
+ 
+    - name: Leave worker swarm before reinitializing as manager
+      ansible.builtin.command:
+        argv:
+          - docker
+          - swarm
+          - leave
+          - --force
+      when:
+        - swarm_info.LocalNodeState == 'active'
+        - not swarm_info.ControlAvailable
+
+    - name: Initialize Docker Swarm manager
+      ansible.builtin.command:
+        argv:
+          - docker
+          - swarm
+          - init
+          - --advertise-addr
+          - "{{ swarm_ip }}"
+      when: swarm_info.LocalNodeState != 'active' or not swarm_info.ControlAvailable
+
+    - name: Get manager node IDs
+      ansible.builtin.command: docker node ls --format '{{ "{{.ID}}" }}' --filter role=manager
+      register: manager_node_ids
+      changed_when: false
+
+    # OBS Does not check if label already exists -> Change to using community.docker?
+    # https://docs.ansible.com/projects/ansible/latest/collections/community/docker/docker_swarm_module.html
+    - name: Label manager node as app
+      ansible.builtin.command:
+        argv:
+          - docker
+          - node
+          - update
+          - --label-add
+          - role=app
+          - "{{ manager_node_ids.stdout_lines[0] }}"
+      when: manager_node_ids.stdout_lines | length > 0
+
+    - name: Check saved monitor node ID
+      ansible.builtin.stat:
+        path: "{{ monitor_state_dir }}/monitor_node_id"
+      register: monitor_node_id_file
+
+    - name: Check saved monitor public IP
+      ansible.builtin.stat:
+        path: "{{ monitor_state_dir }}/monitor_pub_ip"
+      register: monitor_pub_ip_file
+
+    - name: Load saved monitor state
+      ansible.builtin.slurp:
+        path: "{{ item.path }}"
+      register: saved_monitor_files
+      loop:
+        - name: monitor_node_id
+          path: "{{ monitor_state_dir }}/monitor_node_id"
+        - name: monitor_pub_ip
+          path: "{{ monitor_state_dir }}/monitor_pub_ip"
+      when:
+        - monitor_node_id_file.stat.exists
+        - monitor_pub_ip_file.stat.exists
+
+    - name: Set saved monitor facts
+      ansible.builtin.set_fact:
+        monitor_node_id: "{{ saved_monitor_files.results[0].content | b64decode | trim }}"
+        monitor_pub_ip: "{{ saved_monitor_files.results[1].content | b64decode | trim }}"
+      when:
+        - monitor_node_id_file.stat.exists
+        - monitor_pub_ip_file.stat.exists
+
+    - name: Get Docker Swarm worker join token
+      ansible.builtin.command: docker swarm join-token -q worker
+      register: worker_join_token
+      changed_when: false
+      when: monitor_node_id is not defined or monitor_node_id | length == 0
+  
+    - name: Run monitor setup through SSH when no saved monitor state exists
+      ansible.builtin.shell: |
+        set -euo pipefail
+        eval "$(ssh-agent -s)"
+        ssh-add /root/.ssh/id_monitor
+        ssh -o StrictHostKeyChecking=accept-new root@"{{ monitor_ip }}" \
+          "SWARM_WORKER_TOKEN={{ worker_join_token.stdout }} SWARM_MANAGER_IP={{ swarm_ip }} bash -s" \
+          < /vagrant/monitor_setup.sh
+      args:
+        executable: /bin/bash
+      register: monitor_setup_result
+      when: monitor_node_id is not defined or monitor_node_id | length == 0
+
+    - name: Parse monitor setup result
+      ansible.builtin.set_fact:
+        monitor_node_id: "{{ monitor_setup_result.stdout.split()[0] }}"
+        monitor_pub_ip: "{{ monitor_setup_result.stdout.split()[1] }}"
+      when:
+        - monitor_setup_result is defined
+        - monitor_setup_result.stdout is defined
+        - monitor_setup_result.stdout.split() | length >= 2
+
+    - name: Ensure monitor state directory exists
+      ansible.builtin.file:
+        path: "{{ monitor_state_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      when: monitor_node_id is defined and monitor_node_id | length > 0     
+
+    - name: Save monitor node ID
+      ansible.builtin.copy:
+        content: "{{ monitor_node_id }}\n"
+        dest: "{{ monitor_state_dir }}/monitor_node_id"
+        owner: root
+        group: root
+        mode: "0644"
+      when: monitor_node_id is defined and monitor_node_id | length > 0
+
+    - name: Save monitor public IP
+      ansible.builtin.copy:
+        content: "{{ monitor_pub_ip }}\n"
+        dest: "{{ monitor_state_dir }}/monitor_pub_ip"
+        owner: root
+        group: root
+        mode: "0644"
+      when: monitor_pub_ip is defined and monitor_pub_ip | length > 0
+
+    - name: Label monitor node
+      ansible.builtin.command:
+        argv:
+          - docker
+          - node
+          - update
+          - --label-add
+          - role=monitoring
+          - "{{ monitor_node_id }}"
+      when: monitor_node_id is defined and monitor_node_id | length > 0
+
+    - name: Ensure /home/vagrant exists
+      ansible.builtin.file:
+        path: /home/vagrant
+        state: directory
+        mode: "0755"
+
+    - name: Check compose file in /vagrant
+      ansible.builtin.stat:
+        path: "/vagrant/{{ compose_file }}"
+      register: vagrant_compose
+
+    - name: Check compose file in /tmp
+      ansible.builtin.stat:
+        path: "/tmp/{{ compose_file }}"
+      register: tmp_compose
+
+    - name: Fail when compose file is missing
+      ansible.builtin.fail:
+        msg: "Could not find {{ compose_file }} in /vagrant or /tmp"
+      when:
+        - not vagrant_compose.stat.exists
+        - not tmp_compose.stat.exists
+
+    - name: Copy compose file from target staging path
+      ansible.builtin.copy:
+        src: "{{ '/vagrant/' ~ compose_file if vagrant_compose.stat.exists else '/tmp/' ~ compose_file }}"
+        dest: "/home/vagrant/{{ compose_file }}"
+        remote_src: true
+        mode: "0644"  
+
+    - name: Check if PostgreSQL volume device exists
+      ansible.builtin.stat:
+        path: "{{ volume_device }}"
+      register: pg_volume_device
+
+    - name: Setup PostgreSQL volume
+      when: pg_volume_device.stat.exists and pg_volume_device.stat.isblk
+      block:
+
+      - name: Ensure mount directory exists
+        ansible.builtin.file:
+          path: "{{ volume_mount }}"
+          state: directory
+          mode: "0755"
+    
+      - name: Mount and persist volume
+        ansible.builtin.mount:
+          path: "{{ volume_mount }}"
+          src: "{{ volume_device }}"
+          fstype: ext4
+          opts: defaults,nofail
+          state: mounted
+
+      - name: Set ownership for PostgreSQL
+        ansible.builtin.file:
+          path: "{{ volume_mount }}"
+          owner: "999"
+          group: "999"
+          recurse: true
+        
+      - name: Create bind-backed Docker volume for PostgreSQL
+        community.docker.docker_volume:
+          name: postgres_data
+          driver: local
+          driver_options:
+            type: none
+            device: "{{ volume_mount }}"
+            o: bind  
+  
   handlers:
     - name: Restart Nginx
       service: 
