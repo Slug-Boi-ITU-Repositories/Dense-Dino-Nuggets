@@ -68,14 +68,7 @@
       ansible.builtin.set_fact:
         docker_image: "{{ docker_username }}/{{ image_name }}"
 
-  tasks:
-    # Remove?
-    - name: Update apt cache and install Nginx
-      apt:
-        name: ngnix
-        state: latest # Dunno if this should be here
-        update_cache: yes
-  
+  tasks:  
     - name: Ensure root SSH directory exists
       ansible.builtin.file:
         path: /root/.ssh
@@ -410,6 +403,7 @@
         path: "{{ volume_device }}"
       register: pg_volume_device
 
+    # PostgreSQL
     - name: Setup PostgreSQL volume
       when: pg_volume_device.stat.exists and pg_volume_device.stat.isblk
       block:
@@ -444,6 +438,90 @@
             device: "{{ volume_mount }}"
             o: bind  
   
+    # Installs for TLS
+    - name: install Nginx + firewall + certbot
+      apt:
+        name: 
+          - ngnix
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    # Start Nginx
+    - name: Ensure nginx is running
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true    
+
+    # Firewall (UFW)
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow HTTPS via nginx
+      community.general.ufw:
+        rule: allow
+        name: "Nginx Full"
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled    
+
+    # Nginx configuration     
+    - name: Deploy nginx site config
+      ansible.builtin.copy:
+        src: "{{ nginx_site_src }}"
+        dest: "{{ nginx_site_dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload nginx
+
+    - name: Enable nginx site
+      ansible.builtin.file:
+        src: "{{ nginx_site_dest }}"
+        dest: "{{ nginx_site_enabled }}"
+        state: link
+        force: true
+      notify: reload nginx
+
+    - name: Disable default nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    # No-IP container
+    - name: Run No-IP dynamic DNS container
+      community.docker.docker_container:
+        name: noip-duc
+        image: ghcr.io/noipcom/noip-duc:latest
+        env_file: noip_env_file
+        restart_policy: unless-stopped
+        state: started
+      when:
+        - noip_username | default('') | length > 0
+        - noip_password | default('') | length > 0
+        - noip_hostnames | default('') | length > 0
+
+      # Certbot
+    - name: Obtain or renew TLS certificate
+      ansible.builtin.command: >
+        certbot --nginx --non-interactive
+        --agree-tos
+        --email {{ certbot_email }}
+        --keep-until-expiring
+        --redirect
+        -d {{ noip_hostnames }}
+      when:
+        - certbot_email | default('') | length > 0
+        - noip_hostnames | default('') | length > 0
+ 
+
   handlers:
     - name: Restart Nginx
       service: 
