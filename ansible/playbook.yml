@@ -7,44 +7,49 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: localhost # TODO change this # Which machines to run on
-  become: yes # Run commands as sudo when true
+  hosts: test # TODO change this # Which machines to run on
+  become: true # Run commands as sudo when true
   vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
-    
+
     # Database credentials
-    container_name_prefix: "{{ lookup('env', 'CONTAINER_NAME_PREFIX') }}"
+    container_name_prefix: "{{ lookup('env', 'CONTAINER_NAME_PREFIX') | default('minitwit') }}"
     postgres_user: "{{ lookup('env', 'POSTGRES_USER') }}"
     postgres_password: "{{ lookup('env', 'POSTGRES_PASSWORD') }}"
     postgres_db: "{{ lookup('env', 'POSTGRES_DB') }}"
-    postgres_host: "{{ lookup('env', 'POSTGRES_HOST') }}"
-    postgres_port: "{{ lookup('env', 'POSTGRES_PORT') }}"
-    db_ssl_mode: "{{ lookup('env', 'DB_SSL_MODE') }}"
+    postgres_host: "{{ lookup('env', 'POSTGRES_HOST') | default('postgres') }}"
+    postgres_port: "{{ lookup('env', 'POSTGRES_PORT') | default('5432') }}"
+    db_ssl_mode: "{{ lookup('env', 'DB_SSL_MODE') | default('true') }}"
     volume_mount: "{{ lookup('env', 'VOLUME_MOUNT') | default('/mnt/pgdata', true) }}"
     monitor_ip: "{{ lookup('env', 'MONITOR_IP') }}"
 
-   # No-IP / TLS / monitor values.
+    # No-IP / TLS / monitor values.
     noip_username: "{{ lookup('env', 'NOIP_USERNAME') }}"
     noip_password: "{{ lookup('env', 'NOIP_PASSWORD') }}"
     noip_hostnames: "{{ lookup('env', 'NOIP_HOSTNAMES') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') }}"
-    monitor_pub_key: "{{ lookup('env', 'MONITOR_PUB_KEY') }}"
-    
+    monitor_pub_key: "{{ lookup('env', 'MONITOR_PUB_KEY') | default('ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDKweaNFI+QlTKKwLbflq/mnBFpwcNKzRe4XmKx+QEcuajHT3W+aXRUu5VD0tnzXGnjoN5T2XKJDHnMcqSrmKbJ/oo2f8FFEgAmVIIAxlMPDwTn9ncrzrlr0xdziI7Qt5uyWjsuzYzemic0cLOxJ8ChAimk5iKLhC4Z1HCqR7ebfdJS+3auhM+K1rTRkxHL6GjKXFMBugTG8MQ44mAUnI2g1q66H77Su+FvJCOkBBBrlLhUvJcsb7/auLGM6ka1sl4TbWIuOQ7jTq4bVFT+5pgT5nDMC2rZFtou6I6GChuyjSCG56OQ7MArcz+zmkpnmLUjohefZ64IO2qmKUDdZbgYKhlntDp/fmd4Zd3vQpfg5tRbg8YTMKX++R899Ze6tMya86HjHeUJT9avFnPTNdkMISGEfs2+t7wzTUh/JM+BEf7w0ASG7g1MI6Dd6KlQZjr+1Z9iYx8bVqalPA4bl2S/ppW1SAlQNvnYrIXYi/O6asleSglAc0u3DEh7nmeGDjc= august@august-laptop') }}"
+
     # Resource limits
     postgres_cpu_limit: "{{ lookup('env', 'POSTGRES_CPU_LIMIT') | default('0.2', true) }}"
     postgres_mem_limit: "{{ lookup('env', 'POSTGRES_MEM_LIMIT') | default('300M', true) }}"
     app_replicas: "{{ lookup('env', 'APP_REPLICAS') | default('2', true) }}"
     app_cpu_limit: "{{ lookup('env', 'APP_CPU_LIMIT') | default('0.2', true) }}"
-    app_mem_limit: "{{ lookup('env', 'APP_MEM_LIMIT') | default('256M', true) }}" 
+    app_mem_limit: "{{ lookup('env', 'APP_MEM_LIMIT') | default('256M', true) }}"
+
+    jwt_key: "{{ lookup('env', 'JWT_KEY')  }}"
+
+    nginx_site_dest: /etc/nginx/sites-available/minitwit.conf
+    nginx_site_enabled: /etc/nginx/sites-enabled/minitwit.conf
 
     volume_device: /dev/sda
     compose_file: docker-compose.yml
-    compose_src: docker-compose.yml.j2
-    compose_dest: /home/vagrant/docker-compose.processed.yml
+    compose_src: ../docker-compose.yml
+    compose_dest: /vagrant/docker-compose.processed.yml
     stack_name: minitwit
     noip_image: ghcr.io/noipcom/noip-duc:3.3.0
     noip_container: noip-duc
-    noip_env_file: /home/vagrant/.env
+    noip_env_file: /vagrant/.env
     monitor_state_dir: /vagrant/monitor
 
   pre_tasks:
@@ -57,11 +62,12 @@
           - postgres_host | length > 0
           - monitor_ip | length > 0
           - monitor_pub_key | length > 0
+          - jwt_key | length > 0
         fail_msg: >-
           One or more required variables are missing. Required:
           POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB, POSTGRES_HOST,
-          MONITOR_IP, MONITOR_PUB_KEY.
-    
+          MONITOR_IP, MONITOR_PUB_KEY, JWT_KEY.
+
     - name: Select architecture-specific image
       ansible.builtin.set_fact:
         image_name: "{{ 'minitwitutmimage' if ansible_architecture in ['aarch64', 'arm64'] else 'minitwitimage' }}"
@@ -70,7 +76,7 @@
       ansible.builtin.set_fact:
         docker_image: "{{ docker_username }}/{{ image_name }}"
 
-  tasks:  
+  tasks:
     - name: Ensure root SSH directory exists
       ansible.builtin.file:
         path: /root/.ssh
@@ -104,7 +110,7 @@
     - name: Verify monitor private key exists
       ansible.builtin.stat:
         path: /root/.ssh/id_monitor
-      register: monitor_key 
+      register: monitor_key
 
     - name: Fail when monitor private key is missing
       ansible.builtin.fail:
@@ -128,7 +134,7 @@
         state: directory
         owner: root
         group: root
-        mode: "0755" 
+        mode: "0755"
 
     - name: Configure Docker apt repository
       ansible.builtin.shell: |
@@ -233,7 +239,7 @@
       ansible.builtin.set_fact:
         swarm_info: "{{ swarm_info_raw.stdout | from_json }}"
         swarm_ip: "{{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}"
- 
+
     - name: Leave worker swarm before reinitializing as manager
       ansible.builtin.command:
         argv:
@@ -309,7 +315,7 @@
       register: worker_join_token
       changed_when: false
       when: monitor_node_id is not defined or monitor_node_id | length == 0
-  
+
     - name: Run monitor setup through SSH when no saved monitor state exists
       ansible.builtin.shell: |
         set -euo pipefail
@@ -320,13 +326,14 @@
           < /vagrant/monitor_setup.sh
       args:
         executable: /bin/bash
+        # creates: "{{ monitor_state_dir }}/monitor_node_id" # Does this make it idempotent?
       register: monitor_setup_result
       when: monitor_node_id is not defined or monitor_node_id | length == 0
 
     - name: Parse monitor setup result
       ansible.builtin.set_fact:
-        monitor_node_id: "{{ monitor_setup_result.stdout.split()[0] }}"
-        monitor_pub_ip: "{{ monitor_setup_result.stdout.split()[1] }}"
+        monitor_node_id: "{{ monitor_setup_result.stdout.split('\n')[1].split()[0] }}"
+        monitor_pub_ip: "{{ monitor_setup_result.stdout.split('\n')[1].split()[1] }}"
       when:
         - monitor_setup_result is defined
         - monitor_setup_result.stdout is defined
@@ -339,7 +346,7 @@
         owner: root
         group: root
         mode: "0755"
-      when: monitor_node_id is defined and monitor_node_id | length > 0     
+      when: monitor_node_id is defined and monitor_node_id | length > 0
 
     - name: Save monitor node ID
       ansible.builtin.copy:
@@ -370,9 +377,9 @@
           - "{{ monitor_node_id }}"
       when: monitor_node_id is defined and monitor_node_id | length > 0
 
-    - name: Ensure /home/vagrant exists
+    - name: Ensure /vagrant exists
       ansible.builtin.file:
-        path: /home/vagrant
+        path: /vagrant
         state: directory
         mode: "0755"
 
@@ -396,9 +403,9 @@
     - name: Copy compose file from target staging path
       ansible.builtin.copy:
         src: "{{ '/vagrant/' ~ compose_file if vagrant_compose.stat.exists else '/tmp/' ~ compose_file }}"
-        dest: "/home/vagrant/{{ compose_file }}"
+        dest: "/vagrant/{{ compose_file }}"
         remote_src: true
-        mode: "0644"  
+        mode: "0644"
 
     - name: Check if PostgreSQL volume device exists
       ansible.builtin.stat:
@@ -409,42 +416,41 @@
     - name: Setup PostgreSQL volume
       when: pg_volume_device.stat.exists and pg_volume_device.stat.isblk
       block:
+        - name: Ensure mount directory exists
+          ansible.builtin.file:
+            path: "{{ volume_mount }}"
+            state: directory
+            mode: "0755"
 
-      - name: Ensure mount directory exists
-        ansible.builtin.file:
-          path: "{{ volume_mount }}"
-          state: directory
-          mode: "0755"
-    
-      - name: Mount and persist volume
-        ansible.builtin.mount:
-          path: "{{ volume_mount }}"
-          src: "{{ volume_device }}"
-          fstype: ext4
-          opts: defaults,nofail
-          state: mounted
+        - name: Mount and persist volume
+          ansible.builtin.mount:
+            path: "{{ volume_mount }}"
+            src: "{{ volume_device }}"
+            fstype: ext4
+            opts: defaults,nofail
+            state: mounted
 
-      - name: Set ownership for PostgreSQL
-        ansible.builtin.file:
-          path: "{{ volume_mount }}"
-          owner: "999"
-          group: "999"
-          recurse: true
-        
-      - name: Create bind-backed Docker volume for PostgreSQL
-        community.docker.docker_volume:
-          name: postgres_data
-          driver: local
-          driver_options:
-            type: none
-            device: "{{ volume_mount }}"
-            o: bind  
-  
+        - name: Set ownership for PostgreSQL
+          ansible.builtin.file:
+            path: "{{ volume_mount }}"
+            owner: "999"
+            group: "999"
+            recurse: true
+
+        - name: Create bind-backed Docker volume for PostgreSQL
+          community.docker.docker_volume:
+            name: postgres_data
+            driver: local
+            driver_options:
+              type: none
+              device: "{{ volume_mount }}"
+              o: bind
+
     # Installs for TLS
     - name: install Nginx + firewall + certbot
       apt:
-        name: 
-          - ngnix
+        name:
+          - nginx
           - ufw
           - certbot
           - python3-certbot-nginx
@@ -456,7 +462,7 @@
       ansible.builtin.systemd:
         name: nginx
         state: started
-        enabled: true    
+        enabled: true
 
     # Firewall (UFW)
     - name: Allow SSH
@@ -471,17 +477,17 @@
 
     - name: Enable UFW
       community.general.ufw:
-        state: enabled    
+        state: enabled
 
-    # Nginx configuration     
+    # Nginx configuration
     - name: Deploy nginx site config
       ansible.builtin.copy:
-        src: "{{ nginx_site_src }}"
+        src: "../nginx/sites-available/minitwit.conf"
         dest: "{{ nginx_site_dest }}"
         owner: root
         group: root
         mode: "0644"
-      notify: reload nginx
+      notify: restart nginx
 
     - name: Enable nginx site
       ansible.builtin.file:
@@ -489,20 +495,20 @@
         dest: "{{ nginx_site_enabled }}"
         state: link
         force: true
-      notify: reload nginx
+      notify: restart nginx
 
     - name: Disable default nginx site
       ansible.builtin.file:
         path: /etc/nginx/sites-enabled/default
         state: absent
-      notify: reload nginx
+      notify: restart nginx
 
     # No-IP container
     - name: Run No-IP dynamic DNS container
       community.docker.docker_container:
         name: noip-duc
         image: ghcr.io/noipcom/noip-duc:latest
-        env_file: noip_env_file
+        env_file: "{{ noip_env_file }}"
         restart_policy: unless-stopped
         state: started
       when:
@@ -522,13 +528,24 @@
       when:
         - certbot_email | default('') | length > 0
         - noip_hostnames | default('') | length > 0
- 
+
     # Render Docker Compose file
     - name: Render Docker Compose from template
-      ansible.builtin.template:
-        src: "{{ compose_src }}"
-        dest: "{{ compose_dest }}"
-        mode: "0644"
+      ansible.builtin.shell: |
+        envsubst < /home/vagrant/{{ compose_file }} > /home/vagrant/docker-compose.processed.yml
+      args:
+        executable: /bin/bash
+      environment:
+        POSTGRES_USER: "{{ postgres_user }}"
+        POSTGRES_PASSWORD: "{{ postgres_password }}"
+        POSTGRES_DB: "{{ postgres_db }}"
+        POSTGRES_HOST: "{{ postgres_host }}"
+        POSTGRES_PORT: "{{ postgres_port }}"
+        DB_SSL_MODE: "{{ db_ssl_mode }}"
+        JWT_KEY: "{{ jwt_key }}"
+        DOCKER_USERNAME: "{{ docker_username }}"
+        APP_REPLICAS: "{{ app_replicas }}"
+        MONITOR_PUB_IP: "{{ monitor_pub_ip }}"
 
     # Fix image name (if needed)
     - name: Ensure correct image is used
@@ -550,7 +567,7 @@
         path: "{{ compose_dest }}"
         regexp: '(?ms)minitwit:.*?logging:.*?(?=\n\s{2}[a-zA-Z0-9_-]+:)'
         replace: '\g<0>'
-      when: loki_enabled.stdout != "true" 
+      when: loki_enabled.stdout != "true"
 
     # Pull required images
     - name: Pull application image
@@ -561,13 +578,13 @@
     - name: Pull PostgreSQL image (initial deployment)
       community.docker.docker_image:
         name: postgres:15-alpine
-        source: pull       
+        source: pull
 
     # Deploy stack
     - name: Deploy Docker Swarm stack
       ansible.builtin.command: >
         docker stack deploy
-        --compose-file {{ compose_dest }} 
+        --compose-file {{ compose_dest }}
         --with-registry-auth
         --prune
         {{ stack_name }}
@@ -575,7 +592,7 @@
     # Lil' pause for things to do their thang
     - name: Wait for services to settle
       ansible.builtin.pause:
-        seconds: 10    
+        seconds: 10
 
     # Show status
     - name: Show stack services
@@ -592,10 +609,10 @@
           - "Minitwit running at http://{{ swarm_ip }}:8080"
           - "Prometheus: http://{{ monitor_pub_ip | default('UNKNOWN') }}:9090"
           - "Grafana: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3000"
-          - "Loki: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3100" 
+          - "Loki: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3100"
 
   handlers:
-    - name: Restart Nginx
-      service: 
-        name: ngnx
+    - name: restart nginx
+      service:
+        name: nginx
         state: restarted
