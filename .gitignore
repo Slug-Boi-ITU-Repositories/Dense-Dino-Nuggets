@@ -63,4 +63,4 @@ node_modules/
 .ssh
 
 # Ansible
-/ansible/inventory.yml
+ansible/inventory.*
