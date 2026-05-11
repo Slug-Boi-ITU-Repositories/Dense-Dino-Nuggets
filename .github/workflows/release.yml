@@ -84,6 +84,60 @@ jobs:
           cloud-token: ${{ secrets.DAGGER_CLOUD_TOKEN }}
           module: .
           args: publish --src=. --username=${{ secrets.DOCKER_USERNAME }} --password=DOCKER_PASSWORD
+  provision:
+    needs: publish
+    if: success()
+    name: provision
+    runs-on: ubuntu-latest
+    env:
+      PUB_APP_IP: ${{ secrets.PUB_APP_IP }}
+      PUB_MONITOR_IP: ${{ secrets.PUB_MONITOR_IP }}
+      PUB_TEST_IP: ${{ secrets.PUB_TEST_IP }}
+    steps:
+      - name: Setup environment
+        uses: actions/checkout@v4
+      - name: Set up SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.SSH_KEY_APP }}
+            ${{ secrets.SSH_KEY_MONITOR }}
+            ${{ secrets.SSH_KEY_TEST }}
+      - name: Add All Targets to Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PUB_APP_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.PUB_MONITOR_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.PUB_TEST_IP }} >> ~/.ssh/known_hosts
+      - name: Manual Ansible Setup and Provision
+        run: |
+          pip install ansible
+          cd ansible && ansible-playbook -i example_inventory.yml playbook.yml --limit "prod"
+        env: 
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
+          DB_SSL_MODE: disable
+          MONITOR_IP: ${{ secrets.MONITOR_IP }}
+          CONTAINER_NAME_PREFIX: minitwit
+          NOIP_USERNAME: ${{ secrets.NOIP_USERNAME }}
+          NOIP_PASSWORD: ${{ secrets.NOIP_PASSWORD }}
+          NOIP_HOSTNAMES: ${{ secrets.NOIP_HOSTNAMES }}
+          CERTBOT_EMAIL: ${{ secrets.CERTBOT_EMAIL }}
+          POSTGRES_CPU_LIMIT: 0.5
+          POSTGRES_MEM_LIMIT: 512M
+          APP_REPLICAS: 3
+          DIGITAL_OCEAN_TOKEN: ${{ secrets.DIGITAL_OCEAN_TOKEN }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          MONITOR_PUB_KEY: ${{ secrets.MONITOR_PUB_KEY }}
+          JWT_KEY: ${{ secrets.JWT_KEY }}
+          DROPLET_USERNAME: ${{ secrets.DROPLET_USERNAME }}
 
-  
+
+
+
+            
 
