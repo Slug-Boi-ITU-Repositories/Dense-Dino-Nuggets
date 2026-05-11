@@ -1,19 +1,16 @@
 all:
   vars:
-    ansible_user: <user>
+    ansible_user: "{{ lookup('ansible.builtin.env', 'DROPLET_USERNAME') }}"
   hosts:
     app:
-      ansible_host: <insert-droplet-ip>
+      ansible_host: "{{ lookup('ansible.builtin.env', 'PUB_APP_IP') }}"
       ansible_connection: ssh
-      ansible_ssh_private_key_file: ~/.ssh/<key-name>
     monitor:
-      ansible_host: <insert-droplet-ip>
+      ansible_host: "{{ lookup('ansible.builtin.env', 'PUB_MONITOR_IP') }}"
       ansible_connection: ssh
-      ansible_ssh_private_key_file: ~/.ssh/<key-name>   
     test_droplet:
-      ansible_host: <insert-droplet-ip>
+      ansible_host: "{{ lookup('ansible.builtin.env', 'PUB_TEST_IP') }}"
       ansible_connection: ssh
-      ansible_ssh_private_key_file: ~/.ssh/<key-name>
 
   children: 
     prod:
