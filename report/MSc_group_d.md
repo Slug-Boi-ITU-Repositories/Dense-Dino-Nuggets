@@ -45,7 +45,8 @@ Our Minitwit uses the following dependencies:
 | -------- | ------- |
 | Dagger |  |
 | Playwright ||
-| spellcheck ||
+| misspell ||
+| golangci-lint | |
 | CodeQL ||
 | SonarCloud ||
 | Codacy ||
