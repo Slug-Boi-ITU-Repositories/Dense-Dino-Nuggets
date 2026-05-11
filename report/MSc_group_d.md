@@ -1,6 +1,6 @@
 # DevOps Group D
 
-| Name    | email |
+| Name    | Email |
 | -------- | ------- |
 | August Kofoed Brandt  | aubr@itu.dk |
 | Emilia Victoria Helsted | ehel@itu.dk |
@@ -19,10 +19,41 @@ A description and illustration of the:
 
 - Describe the current state of your systems, for example using results of static analysis and quality assessments.
 -->
-
 ### Design and Architecture
 
 ### Dependencies
+
+Our Minitwit uses the following dependencies:
+
+#### Core dependencies
+
+| Dependency   | Description |
+| -------- | ------- |
+| Golang  |  |
+| PostgreSQL |  |
+| Nginx |  |
+| Docker |  |
+| DigitalOcean |  |
+
+
+#### CI and Quality tooling
+
+| Dependency   | Description |
+| -------- | ------- |
+| Dagger |  |
+| Playwright ||
+| spellcheck ||
+| CodeQL ||
+| SonarCloud ||
+| Codacy ||
+
+#### Monitoring (and logging?)
+
+| Dependency   | Description |
+| -------- | ------- |
+| Grafana |  |
+| Loki ||
+| Prometheus ||
 
 ### Current State of our Minitwit
 
@@ -68,6 +99,10 @@ Also reflect and describe what was the "DevOps" style of your work. For example,
 ## Use of Generative AI
 <!---
 ITU's rules on the use of generative AI apply for this report too. They are described https://itustudent.itu.dk/Study%20Administration/Generative%20AI#Guidelines and in detail https://itustudent.itu.dk/-/media/ITU-Student/Study-Administration/GAI/Generative-AI-guidelines-for-students-Spring-2026-pdf.pdf. Please follow them. For your report that means that you have to state which generative AI tools have been used for which task(s) in your projects. Additionally, describe how generative AI tools have been used and briefly reflect and discuss how they supported or hindered your work process.
+
+From the guidelines:
+• State which generative AI technology has been used.
+• Describe how generative AI technology has been used.
 -->
 We have used the following models while working on our Minitwit:
 
@@ -75,10 +110,13 @@ We have used the following models while working on our Minitwit:
 - DeepSeek
 - Claude
 
-
-
 <!---
-Just some flowy thoughts
+Just some flowy thoughts:
+I belive we accidently set up CodePilot reviews for some pull requests?
 
-For tasks such as translating our vagrant file of over 500 lines of code to an ansible it seemed smart to use generative AI. We did however run into problems with ChatGPT directly translating the code rather that using the perks of ansible to write "good" code.
+In general we have used generative AI to help explain topics and technologies so we could better understand them. 
+
+When refactoring the tests from the original Minitwit, ChatGPT was used for debugging and identifying where the issue was, when there were issues with flashes not being set correctly in main.
+
+For tasks such as translating our vagrant file of over 500 lines of code to an ansible it seemed smart to use generative AI. We did however run into problems with ChatGPT directly translating the code rather that using the perks of ansible to write "good" code. We had to spend a lot of time on fixing the generated code and while there was some learning in it we could have gotten more out of doing it from scratch
 -->
