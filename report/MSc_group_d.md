@@ -26,38 +26,40 @@ A description and illustration of the:
 Our Minitwit uses the following dependencies:
 
 #### Core dependencies
+<!---
+I have kept the descriptions very short due to the word limit of the report. Feel free to make changes to them. - Emy
+-->
+| Dependency | Description |
+| ---------- | ----------- |
+| Golang | Open-source programming language by Google. |
+| PostgreSQL | Open-source relational database. |
+| GORM | ORM library for Go. Adds an abstraction layer between our application and the database |
+| Nginx | Acts as a reverse proxy |
+| Docker | Enables containerization of system components and orhcestration of nodes using Docker swarm |
+| DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
+| OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
+| Certbot | An open-source tool for automatically obtaining and renewing TLS certificates to enable HTTPS |
+| Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments. It manages virtual machines defined in vagrantfiles. |
 
-| Dependency   | Description |
-| -------- | ------- |
-| Golang  |  |
-| PostgreSQL |  |
-| Nginx |  |
-| Docker |  |
-| DigitalOcean |  |
-| Vagrant | (Deprecated?) |
-| OpenTofu ||
-| Certbot ||
+#### Testing and Quality tooling
 
+| Dependency | Description |
+| ---------- | ----------- |
+| Dagger | A platform for orchestrating tests. Used for running our tests, linter, and spellcheck through Github workflows. |
+| Playwright | A web-facing end-to-end testing library |
+| misspell | Checks for misspelled words. Part of our workflow for pull requests. |
+| golangci-lint | A universal linter. Part of our workflow for pull requests. |
+| CodeQL | A tool for static code analysis, focused on security and vulnerability detection. |
+| SonarQube | A tool for static code analysis, focused on code quality and maintainability. |
+| Codacy | A code quality platform that aggregates the results of the static code analysis and presents them in pull requests to support code reviews |
 
-#### CI and Quality tooling
+#### Monitoring and Logging
 
-| Dependency   | Description |
-| -------- | ------- |
-| Dagger |  |
-| Playwright ||
-| misspell ||
-| golangci-lint | |
-| CodeQL ||
-| SonarCloud ||
-| Codacy ||
-
-#### Monitoring (and logging?)
-
-| Dependency   | Description |
-| -------- | ------- |
-| Grafana |  |
-| Loki ||
-| Prometheus ||
+| Dependency | Description |
+| ---------- | ----------- |
+| Grafana | A platform for real-time visualization and monitoring of system performance through dashboards. |
+| Loki | A log aggregation system. It only indexes metadata and integrates easily with Grafana |
+| Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
 
 ### Current State of our Minitwit
 
@@ -108,7 +110,7 @@ From the guidelines:
 • State which generative AI technology has been used.
 • Describe how generative AI technology has been used.
 -->
-We have used the following models while working on our Minitwit:
+We have used the following generative models while working on our Minitwit:
 
 - ChatGPT
 - DeepSeek
