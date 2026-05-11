@@ -606,10 +606,10 @@
     - name: Print deployment summary
       ansible.builtin.debug:
         msg:
-          - "Minitwit running at http://{{ swarm_ip }}:8080"
-          - "Prometheus: http://{{ monitor_pub_ip | default('UNKNOWN') }}:9090"
-          - "Grafana: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3000"
-          - "Loki: http://{{ monitor_pub_ip | default('UNKNOWN') }}:3100"
+          - "Minitwit running at https://{{ swarm_ip }}:8080"
+          - "Prometheus: https://{{ monitor_pub_ip | default('UNKNOWN') }}:9090"
+          - "Grafana: https://{{ monitor_pub_ip | default('UNKNOWN') }}:3000"
+          - "Loki: https://{{ monitor_pub_ip | default('UNKNOWN') }}:3100"
 
   handlers:
     - name: restart nginx
