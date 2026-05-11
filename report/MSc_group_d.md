@@ -34,6 +34,9 @@ Our Minitwit uses the following dependencies:
 | Nginx |  |
 | Docker |  |
 | DigitalOcean |  |
+| Vagrant | (Deprecated?) |
+| OpenTofu ||
+| Certbot ||
 
 
 #### CI and Quality tooling
