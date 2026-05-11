@@ -532,7 +532,7 @@
     # Render Docker Compose file
     - name: Render Docker Compose from template
       ansible.builtin.shell: |
-        envsubst < /home/vagrant/{{ compose_file }} > /home/vagrant/docker-compose.processed.yml
+        envsubst < /vagrant/{{ compose_file }} > /vagrant/docker-compose.processed.yml
       args:
         executable: /bin/bash
       environment:
