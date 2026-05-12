@@ -65,6 +65,16 @@ MONITOR_PUB_KEY="..."
 JWT_KEY="..."
 ```
 
+### Provisioning using ansible
+
+Once droplets are running you can provision them using the included ansible scripts in the ansible folder. You have to have the environment variables set from above and fill in the missing information in the example_inventory.yml about the current hosts you are using. The important ones are the ones grouped under prod. Once the inventory is defined you can run the playbook against the droplets using this command:
+
+```bash
+$ ansible-playbook -i inventory.yml playbook.yml --limit "prod" 
+```
+
+The droplet might take a while on initial setup as creating the database can sometimes be a little slow (usually takes around 2 minutes)
+
 ### Local Docker Compose workflow
 
 The following setup is used for local development from the project root. Remember to setup a .env file as specified in the [Environment setup] section.
