@@ -7,7 +7,7 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: test # TODO change this # Which machines to run on
+  hosts: test # Which machines to run on
   become: true # Run commands as sudo when true
   vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
