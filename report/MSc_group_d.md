@@ -83,29 +83,26 @@ In particular, the following descriptions should be included:
 
 ### 2.1 CI/CD Pipelines
 
-![test_CI_pipeline.png](images/test_CI_pipeline.png)
-
 #### Validation pipeline on pull requests
 
-Our PR pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We run SonarQube, CodeQL, and Codeacy for static code analysis. We also run our test workflow, as seen in the diagram above, which runs our tests, linter, and spellchecker misspell,   all orchestrated through Dagger. SonarQube and Codacy both post a report on the pull request for a quick overview. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request. When both of these conditions are met the pull request can me merged into main.
+Our PR pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We run SonarQube, CodeQL, and Codeacy for static code analysis. We also run our test workflow, as seen in the diagram below, which runs our tests, linter, and spellchecker misspell,   all orchestrated through Dagger. SonarQube and Codacy both post a report on the pull request for a quick overview. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request. When both of these conditions are met the pull request can be merged into main.
+
+![test_CI_pipeline.png](images/test_CI_pipeline.png)
 
 <!---
 Maybe there whould be a comment on the ignored security checks?
 I'm not sure if we should expand or keep it consice, so here are some leftovers that could be integrated with some adjustments. -Emy
 SonarQube checks for security vulnerabilities, maintainability, and reliability
 CodeQL analyses Github actions, Go, and javascript-typescript for vulnerabilities.
--->
 
-#### The Test Pipeline
-
+Theis' description. Nice to keep around fior now.
 Below is a flowchart showing the Test CI pipeline. The start is on the left when a developer pushes code to a PR or a push happens on the branch Main (e.g. when code is merged or rebased onto it). The pipeline uses Dagger which is mentioned in our depenedency tables above. This allows us to create multiplatform workflows (that is workflows that will work on any platform that has some type of action runner) with minimal setup. All the platform specific workflow has to do is start the dagger engine and run the checks.
-
-![test_CI_pipeline.png](img/test_CI_pipeline.png)
+-->
 
 #### Release Pipeline
 
 Below is a flowchart showing the Release CI pipeline
-Our release pipeline 
+Our release pipeline
 
 Run checks
 run end2end (playwright)
@@ -118,21 +115,21 @@ if tests succeed
 This is how our minitoring dashboard looks
 ![minitwit_dashboard.png](./images/minitwit_dashboard.png)
 
-Data is gathered from the minitwit application by pulling with with Prometheus. Logs are gotten by using the loki logging driver on our minitwit containers, which push to an aggregator container on the monitoring machine. Grafana can then pull data from Prometheus and Loki to display in the dashboard. The dashboard shows:
+Data is gathered from the minitwit application by pulling with Prometheus. Logs are aquired by using the Loki logging driver on our minitwit containers, which push to an aggregator container on the monitoring machine. Grafana can then pull data from Prometheus and Loki to display in the dashboard. The dashboard shows:
 
 - If the server is running or is down
 - The 99'th and 99.9'th percentile of response time to see if we have requests that are taking longer than they should
 - The average time requests take to know how the system is responding in general
-- The amount of requests pr second too see the load on the system 
-- The logs from minitwit too see what is happening on the system
+- The amount of requests pr second to see the load on the system
+- The logs from minitwit to see what is happening on the system
 
 #### Alerting
 
-We set up an alert that used Grafana's build in Discord web hook, such that a Discord bot would send a message in our Discord server in case the minitwit system went down or was unreachable by Prometheus. We tested this artificially, but never in practice since the system didn't go down after we added the alert.
+We set up an alert that used Grafana's build in Discord web hook, such that a Discord bot would send a message in our Discord server in case the minitwit system went down or was unreachable by Prometheus. We tested this artificially but never in practice since the system did not go down after we added the alert.
 
 #### Monitoring issues
 
-One large issue we ran into was that our Promethus setup wasn't collecting accurate infromation from the minitwit system, after we started using swarm to have multiple replicas. This was an unfortunate side effect of Prometheus being a pull system. Because, when Prometheus tried to pull data if would only get the monitoring data from one of the replicas. To solve this we needed to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus such that it would be able to aggregate data from all the replicas, or show data for each replica. However, we didn't have the time to implement this as there where other things that took higher priority, so this never reached the top of the priority list.
+One large issue we ran into was that our Promethus setup was not collecting accurate infromation from the minitwit system, after we started using swarm to have multiple replicas. This was an unfortunate side effect of Prometheus being a pull system. Because, when Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we needed to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus such that it would be able to aggregate data from all the replicas, or show data for each replica. However, we did not have the time to implement this as there where other things that took higher priority, so this never reached the top of the priority list.
 
 ### 2.3 Logging
 
