@@ -107,13 +107,11 @@ jobs:
           ssh-private-key: |
             ${{ secrets.SSH_KEY_APP }}
             ${{ secrets.SSH_KEY_MONITOR }}
-            ${{ secrets.SSH_KEY_TEST }}
       - name: Add All Targets to Known Hosts
         run: |
           mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.PUB_APP_IP }} >> ~/.ssh/known_hosts
           ssh-keyscan -H ${{ secrets.PUB_MONITOR_IP }} >> ~/.ssh/known_hosts
-          ssh-keyscan -H ${{ secrets.PUB_TEST_IP }} >> ~/.ssh/known_hosts
       - name: Manual Ansible Setup and Provision
         run: |
           pip install ansible
