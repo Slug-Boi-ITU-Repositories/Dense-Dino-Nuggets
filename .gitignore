@@ -33,6 +33,11 @@ go.work.sum
 # Vagrant ignores
 .vagrant
 
+# Opentofu 
+terraform.tfvars
+./terraform
+.terraform.lock.hcl
+
 # Editor/IDE
 # .idea/
 .vscode/
@@ -50,3 +55,17 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# ssh keys
+.ssh
+
+# Ansible
+ansible/inventory.*
