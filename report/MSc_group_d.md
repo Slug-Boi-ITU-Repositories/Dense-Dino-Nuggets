@@ -2,11 +2,11 @@
 
 | Name | Email |
 | -------- | ------- |
-| August Kofoed Brandt  | aubr@itu.dk |
-| Emilia Victoria Helsted | ehel@itu.dk |
-| Niklas Zeeberg Hessner Christensen | nizc@itu.dk |
-| Philip Guozhi Han Pedersen | phgp@itu.dk |
-| Theis Per Holm | thph@itu.dk |
+| August Kofoed Brandt | <aubr@itu.dk> |
+| Emilia Victoria Helsted | <ehel@itu.dk> |
+| Niklas Zeeberg Hessner Christensen | <nizc@itu.dk> |
+| Philip Guozhi Han Pedersen | <phgp@itu.dk> |
+| Theis Per Holm | <thph@itu.dk> |
 
 ## 1. System's Perspective
 <!---
@@ -83,35 +83,22 @@ In particular, the following descriptions should be included:
 
 ### 2.1 CI/CD Pipelines
 
-<!---
-We need an illustration here of the pipeline stages.
-
-Elements:
-Trigger -> Validation steps -> Artifact generation? -> Deployment/release
--->
-
 ![test_CI_pipeline.png](images/test_CI_pipeline.png)
 
 #### Validation pipeline on pull requests
 
-Our first pipeline is triggered on pull requests and pushes to main, to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated.
+Our first pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We run SonarQube, CodeQL, and Codeacy for static code analysis. We also run our test workflow, as seen in the diagram above, which runs our tests, linter, and spellchecker misspell through Dagger. SonarQube and Codacy both post a report on the pull request for a quick overview. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request. When both of these conditions are met we can rebase and merge the changes into main.
 
-Codeacy static code analysis
-Code scanning results / codeQL
-CodeQL / Analyse (Actions) (Dynamic)
-CodeQL / Analyse (go) (dynamic)
-CodeQL / Analyse (javascript-typescript) (dynamic)
-SonarCloud / checks Code Analysis
-Tests / checks (pull_request) -> Dagger workflow
-
-We require that all the checks pass.
-
-We also require at least two members of our team to review and approve the changes in the pull request. When both of these conditions are met we can merge the changes into main.
+<!---
+I'm not sure if we should expand or keep it consice, so here are some leftovers. -Emy
+SonarQube checks for security vulnerabilities, maintainability, and reliability
+CodeQL analyses Github actions, Go, and javascript-typescript for vulnerabilities.  
+-->
 
 #### Release pipeline
 
 Run checks
-run end2end
+run end2end (playwright)
 if tests succeed
 
 ### 2.2 Monitoring of Minitwit
