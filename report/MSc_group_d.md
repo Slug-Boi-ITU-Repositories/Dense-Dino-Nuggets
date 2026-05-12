@@ -39,6 +39,7 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
 | Certbot | An open-source tool for automatically obtaining and renewing TLS certificates to enable HTTPS |
+| Ansible | Open-source automation tool for provisioning and configuring infrastructure through declarative playbooks. Replaces Vagrant. |
 | Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments. It manages virtual machines defined in vagrantfiles. |
 
 #### Testing and Quality tooling
@@ -81,6 +82,35 @@ In particular, the following descriptions should be included:
 -->
 
 ### CI/CD Pipelines
+
+<!---
+We need an illustration here of the pipeline stages.
+
+Elements:
+Trigger -> Validation steps -> Artifact generation? -> Deployment/release
+-->
+
+#### Validation pipeline on pull requests
+
+Our first pipeline is triggered on pull requests to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated.
+
+Codeacy static code analysis
+Code scanning results / codeQL
+CodeQL / Analyse (Actions) (Dynamic)
+CodeQL / Analyse (go) (dynamic)
+CodeQL / Analyse (javascript-typescript) (dynamic)
+SonarCloud / checks Code Analysis
+Tests / checks (pull_request) -> Dagger workflow
+
+We require that all the checks pass.
+
+We also require at least two members of our team to review and approve the changes in the pull request. When both of these conditions are met we can merge the changes into main.
+
+#### Release pipeline
+
+Run checks
+run end2end
+if tests succeed
 
 ### Monitoring of Minitwit
 
@@ -126,7 +156,7 @@ We have used the following generative models while working on our Minitwit:
 
 <!---
 Just some flowy thoughts:
-I belive we accidently set up CodePilot reviews for some pull requests?
+I belive we accidently set up CodePilot reviews for some pull requests
 
 In general we have used generative AI to help explain topics and technologies so we could better understand them. 
 
