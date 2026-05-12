@@ -86,7 +86,7 @@ Risk Score = Likelihood × Impact
 | Monitoring system | Exposure of information | 2 | 2 | 4 | Medium | Require authentication for dashboards, limit access |
 | DigitalOcean droplets | SSH compromise | 1 | 3 | 3 | Medium | Use SSH key-based authentication, apply firewall restrictions |
 | Secrets/config | Credential leak | 1 | 3 | 3 | Medium | Store secrets securely - "Secrets belong in vaults", Use environment variables |
-| Ingress | Service exposure | 2 | 2 | 4 | High | Stop exposing ports that should not be exposed publically |
+| Ingress | Service exposure | 2 | 2 | 4 | Medium | Stop exposing ports that should not be exposed publically |
 | User credentials | Weak hashing | 1 | 3 | 6 | High | Use strong hashing + salting |
 
 ### Additional points
