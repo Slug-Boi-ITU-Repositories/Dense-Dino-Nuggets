@@ -35,6 +35,10 @@ services:
       rollback_config:
         parallelism: 1
         delay: 5s
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: '300M'
 
   minitwit:
     image: ${DOCKER_USERNAME}/minitwitimage:latest
@@ -51,7 +55,7 @@ services:
         loki-url: http://loki:3100/loki/api/v1/push  # Overlay network resolves service name
         loki-external-labels: service=minitwit,env=prod
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE:-disable}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=${DB_SSL_MODE}
       - JWT_KEY=${JWT_KEY}
     depends_on:
       - postgres
@@ -76,10 +80,10 @@ services:
       resources:
         limits:
           cpus: '0.2'
-          memory: 256M
+          memory: '256M'
         reservations:
           cpus: '0.2'
-          memory: 128M
+          memory: '128M'
 
   prometheus:
     image: prom/prometheus:latest
