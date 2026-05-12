@@ -7,7 +7,7 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: test # TODO change this # Which machines to run on
+  hosts: prod # TODO change this # Which machines to run on
   become: true # Run commands as sudo when true
   vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
@@ -316,6 +316,14 @@
       changed_when: false
       when: monitor_node_id is not defined or monitor_node_id | length == 0
 
+    - name: Copy Monitor Setup Script to Droplet
+      ansible.builtin.copy:
+        src: "../scripts/monitor_setup.sh"
+        dest: "/vagrant/monitor_setup.sh"
+        owner: root
+        group: root
+        mode: "0755"
+    
     - name: Run monitor setup through SSH when no saved monitor state exists
       ansible.builtin.shell: |
         set -euo pipefail
@@ -382,7 +390,14 @@
         path: /vagrant
         state: directory
         mode: "0755"
-
+    - name: Copy compose file to Droplet
+      ansible.builtin.copy:
+        src: "{{ compose_src }}"
+        dest: "/vagrant/docker-compose.yml"
+        owner: root
+        group: root
+        mode: "0644"
+    
     - name: Check compose file in /vagrant
       ansible.builtin.stat:
         path: "/vagrant/{{ compose_file }}"
