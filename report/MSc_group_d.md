@@ -90,9 +90,11 @@ Elements:
 Trigger -> Validation steps -> Artifact generation? -> Deployment/release
 -->
 
+![test_CI_pipeline.png](images/test_CI_pipeline.png)
+
 #### Validation pipeline on pull requests
 
-Our first pipeline is triggered on pull requests to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated.
+Our first pipeline is triggered on pull requests and pushes to main, to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated.
 
 Codeacy static code analysis
 Code scanning results / codeQL
