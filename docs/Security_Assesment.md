@@ -79,7 +79,7 @@ Risk Score = Likelihood × Impact
 
 | Asset | Scenario | Likelihood | Impact | Score | Risk Level | Mitigation Strategy |
 |-------|----------|------------|--------|-------|------------|---------------------|
-| Backend API | Injection vulnerability | 1 | 3 | 9 | Critical | Use GORM (ORM) with parameterized queries, input validation, and escaping html input |
+| Backend API | Injection vulnerability | 1 | 3 | 3 | Medium | Use GORM (ORM) with parameterized queries, input validation, and escaping html input |
 | PostgreSQL database | Credential compromise | 2 | 3 | 6 | High | Restrict database access to internal network, use strong credentials, do not expose database publicly |
 | Session tokens | Token theft | 2 | 3 | 6 | High | Use secure cookies, HTTPS, short expiry |
 | Docker Swarm | Cluster takeover | 2 | 3 | 6 | High | Do not expose Swarm manager, restrict access via firewall, secure configuration |
