@@ -84,7 +84,7 @@ Risk Score = Likelihood × Impact
 | Session tokens | Token theft | 2 | 3 | 6 | High | Use secure cookies, HTTPS, short expiry |
 | Docker Swarm | Cluster takeover | 2 | 3 | 6 | High | Do not expose Swarm manager, restrict access via firewall, secure configuration |
 | Monitoring system | Exposure of information | 2 | 2 | 4 | Medium | Require authentication for dashboards, limit access |
-| DigitalOcean droplets | SSH compromise | 1 | 3 | 6 | High | Use SSH key-based authentication, apply firewall restrictions |
+| DigitalOcean droplets | SSH compromise | 1 | 3 | 3 | Medium | Use SSH key-based authentication, apply firewall restrictions |
 | Secrets/config | Credential leak | 1 | 3 | 9 | Critical | Store secrets securely - "Secrets belpng in vaults", Use enviroment variables |
 | Ingress | Service exposure | 2 | 2 | 4 | High | Stop exposing ports that should not be exposed publically |
 | User credentials | Weak hashing | 1 | 3 | 6 | High | Use strong hashing + salting |
