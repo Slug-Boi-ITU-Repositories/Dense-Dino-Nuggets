@@ -33,6 +33,11 @@ go.work.sum
 # Vagrant ignores
 .vagrant
 
+# Opentofu 
+terraform.tfvars
+./terraform
+.terraform.lock.hcl
+
 # Editor/IDE
 # .idea/
 .vscode/

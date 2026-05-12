@@ -23,16 +23,27 @@ set +a
 You need an env file file that includes these vars or you need to have them exported in your environment if you are using a .env file you can export them to your env by using the following command. The `JWT_KEY` is what is used to sign and validate the JWT. This key should be kept secret and should be a long, hard to guess key. All instances of the server need to have the same key otherwise validation of the JWT issued by a different server will fail.
 
 ```bash
-# Database Configuration
+# Database Configuration (CHANGE THESE FOR YOUR OWN VERSION)
 POSTGRES_USER=minitwit_user
 POSTGRES_PASSWORD=minitwit_password
 POSTGRES_DB=minitwit_db
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
+# Set to true if using SSL
 DB_SSL_MODE=disable
 
-# Container Names
+MONITOR_IP=...
+
+# Used in provisioning to set a prefix to all containers running in the swarm
 CONTAINER_NAME_PREFIX=minitwit
+
+# These are taken from No-IP's info panel if you are using it as a DNS
+NOIP_USERNAME=...
+NOIP_PASSWORD=...
+NOIP_HOSTNAMES=...
+
+# This one is not super important just for certifacte info
+CERTBOT_EMAIL=...
 
 # Resource Limits
 POSTGRES_CPU_LIMIT=0.5
@@ -41,6 +52,17 @@ APP_REPLICAS=3
 
 # JWT signing key
 JWT_KEY=<Signing key>
+
+# DO token used for provisioning
+DIGITAL_OCEAN_TOKEN=...
+
+# Your docker information used for build release workflow
+DOCKER_USERNAME=...
+DOCKER_PASSWORD=...
+MONITOR_PUB_KEY="..."
+
+# Whatever string you want just important not to share it
+JWT_KEY="..."
 ```
 
 ### Provisioning using ansible
@@ -115,10 +137,49 @@ $ ./minitwit
 
 If you would like to build on this application you have to download `go` as well as have a `C` compiler to compile the flag tool used to flag tweets in the system. You will also need docker and vagrant if you would like to run the application in a container and provision it as a VM or on digital ocean
 
+## Setup for Open Tofu
+
+You need to have the tofu CLI installed to run the commands below are the required tfvars.
+
+```bash
+do_token          = ""
+postgres_user     = ""
+postgres_password = ""
+postgres_db       = ""
+volume_mount      = ""
+monitor_pub_key   = ""
+postgres_host     = ""
+monitor_ip        = ""
+```
+
+You also need to have these env vars set through an .env file.
+
+```bash
+AWS_ACCESS_KEY_ID=""
+AWS_SECRET_ACCESS_KEY=""
+TF_VAR_do_token=""
+TF_VAR_postgres_user=""
+TF_VAR_postgres_password=""
+```
+
+Once you ahve configured all your variables correctly you should be able to run the following commands:
+
+```bash
+$ tofu plan
+* detailed plan of current setup *
+$ tofu apply
+```
+
+tofu plan will output the planned changes to your current setup (in case nothing is running this will boot up the droplets). tofu apply will actually run the setup and apply the changes. Please make sure that the plan does not include any changes that will kill your current droplets if you do not want downtime on an already running setup.
+
+
 ## Setup for vagrant
 
+Vagrant is no longer supported as we have fully switched over to using OpenTofu + Ansible for our IaC. This part of the docs will remain as legacy.
+
 Required plugins for vagrant:
-```
+
+```text
 vagrant-digitalocean
 vagrant-scp
 vagrant-parallels
@@ -132,10 +193,11 @@ Also if you want to mount your own db you need to put it in the directory:
 `/tmp/minitwit/`
 
 Set environment variables (remember to upload private ssh key to Digital ocean):
-```
-DIGITAL_OCEAN_TOKEN
-SSH_KEY_NAME
-DOCKER_USERNAME
+
+```bash
+DIGITAL_OCEAN_TOKEN=...
+SSH_KEY_NAME=...
+DOCKER_USERNAME=...
 ```
 
 And run mintwit application with either utm virtualbox or digital_ocean provider:
@@ -147,15 +209,19 @@ And run monitoring system with either utm, libvert, or digital_ocean provider:
 `vagrant up monitoring --provider=<provider>`
 
 ## Running monitoring system
+
 The monitoring system uses Prometheus and Grafana which is configured through the files in `./prometheus` and `./grafana`. The system can be started with the docker compose file in the repository.
 
 ### Running the monitoring for local testing and development
+
 Build an image of the minitwit application using the Dockerfile in the repo with the tag `minitwit-monitoring`
+
 ```bash
 $ docker build -t minitwit-monitoring .
 ```
 
 Run the docker compose file with the local profile
+
 ```bash
 $ docker compose --profile local up -d
 ```
@@ -163,16 +229,19 @@ $ docker compose --profile local up -d
 Then the minitwit application is available on `localhost:8080`, Prometheus at `localhost:9090`, and Grafana at `localhost:3000`.
 
 ### Running the monitoring for production
+
 This setup assumes that the minitwit system is already running and accessable. 
 Edit the `./prometheus/prometheus_prod.yml` file so that the target matches the running minitwit.
 
 The production setup assumes that the folders `./prometheus_data` and `./grafana_data` exists locally in the current directory. Make sure to create these first and set the permissions like this:
+
 ```bash
 $ sudo chown -R 65534:65534 ./prometheus_data
 $ sudo chown -R 472:472 ./grafana_data
 ```
 
 Then the production setup can be started with
+
 ```bash
 $ docker compose --profile prod up -d
 ```
@@ -182,6 +251,7 @@ $ docker compose --profile prod up -d
 Make sure the dagger engine is running
 
 From the root of the project open dagger:
+
 ```bash
 $ dagger
 ```
@@ -203,6 +273,7 @@ $ dagger check
 
 **Publish**. *Building and publishing docker image to DockerHub*
 *Here DOCKER_PASSWORD refers the name of the env variable name that stores the password and not the actual password*
+
 ```bash
 $ dagger call publish --src . --username "flakiator" --password "DOCKER_PASSWORD"
 ```

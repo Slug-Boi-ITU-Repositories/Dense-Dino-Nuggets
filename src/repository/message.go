@@ -26,12 +26,15 @@ func (r *MessageRepository) GetPublicTimeline(limit, offset int) ([]model.Messag
 	return messages, err
 }
 
-func (r *MessageRepository) CountPublicTimeline() (int64, error) {
-	var count int64
-	err := r.db.Model(&model.Message{}).
-		Where("flagged = 0").
-		Count(&count).Error
-	return count, err
+func (r *MessageRepository) CountPublicTimeline() int64 {
+	type PageEstimate struct {
+   		RelTuples float64 `gorm:"column:reltuples"`
+	}
+
+	var result PageEstimate
+	r.db.Raw(`SELECT reltuples FROM pg_class WHERE relname = ?`, "message").Scan(&result)
+	
+	return int64(result.RelTuples)
 }
 
 func (r *MessageRepository) GetUserTimeline(userID uint, limit, offset int) ([]model.Message, error) {
