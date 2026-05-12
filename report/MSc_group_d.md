@@ -48,8 +48,8 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | ---------- | ----------- |
 | Dagger | A platform for orchestrating tests. Used for running our tests, linter, and spellcheck through Github workflows. |
 | Playwright | A web-facing end-to-end testing library |
-| misspell | Checks for misspelled words. Part of our workflow for pull requests. |
-| golangci-lint | A universal linter. Part of our workflow for pull requests. |
+| misspell | Checks for misspelled words. Part of our Dagger workflow for pull requests. |
+| golangci-lint | A universal linter. Part of our Dagger workflow for pull requests. |
 | CodeQL | A tool for static code analysis, focused on security and vulnerability detection. |
 | SonarQube | A tool for static code analysis, focused on code quality and maintainability. |
 | Codacy | A code quality platform that aggregates the results of the static code analysis and presents them in pull requests to support code reviews |
