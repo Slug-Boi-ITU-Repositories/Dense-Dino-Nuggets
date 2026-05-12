@@ -8,7 +8,7 @@
 | Philip Guozhi Han Pedersen | phgp@itu.dk |
 | Theis Per Holm | thph@itu.dk |
 
-## System's Perspective
+## 1. System's Perspective
 <!---
 Here we need:
 A description and illustration of the:
@@ -19,9 +19,9 @@ A description and illustration of the:
 
 - Describe the current state of your systems, for example using results of static analysis and quality assessments.
 -->
-### Design and Architecture
+### 1.2 Design and Architecture
 
-### Dependencies
+### 1.3 Dependencies
 
 Our Minitwit uses the following dependencies:
 
@@ -62,9 +62,9 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | Loki | A log aggregation system. It only indexes metadata and integrates easily with Grafana |
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
 
-### Current State of our Minitwit
+### 1.4 Current State of our Minitwit
 
-## Process' perspective
+## 2. Process' perspective
  <!---
 This perspective should clarify how code or other artifacts come from idea into the running system and everything that happens on the way.
 
@@ -81,7 +81,7 @@ In particular, the following descriptions should be included:
 - How do you handle availability and scaling in your systems?
 -->
 
-### CI/CD Pipelines
+### 2.1 CI/CD Pipelines
 
 <!---
 We need an illustration here of the pipeline stages.
@@ -112,11 +112,11 @@ Run checks
 run end2end
 if tests succeed
 
-### Monitoring of Minitwit
+### 2.2 Monitoring of Minitwit
 
-### Logging
+### 2.3 Logging
 
-### Hardening of Minitwit
+### 2.4 Hardening of Minitwit
 
 After performing a security assesment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
 
@@ -126,9 +126,9 @@ We have included the static code analysis tool CodeQL in our CI pipeline for sca
 
 Lastly we wanted scan for Docker image vulnerabilities using Trivy, as it seems to easily be integrated to our pipeline in a shift-left manner. We did however not have time for this.
 
-### Availability and Scaling
+### 2.5 Availability and Scaling
 
-## Reflection Perspective
+## 3. Reflection Perspective
 <!---
 Describe the biggest issues, how you solved them, and which are major lessons learned with regards to:
 
@@ -140,7 +140,7 @@ of your ITU-MiniTwit systems. Link back to respective commit messages, issues, t
 Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
 -->
 
-## Use of Generative AI
+## 4.vUse of Generative AI
 <!---
 ITU's rules on the use of generative AI apply for this report too. They are described https://itustudent.itu.dk/Study%20Administration/Generative%20AI#Guidelines and in detail https://itustudent.itu.dk/-/media/ITU-Student/Study-Administration/GAI/Generative-AI-guidelines-for-students-Spring-2026-pdf.pdf. Please follow them. For your report that means that you have to state which generative AI tools have been used for which task(s) in your projects. Additionally, describe how generative AI tools have been used and briefly reflect and discuss how they supported or hindered your work process.
 
