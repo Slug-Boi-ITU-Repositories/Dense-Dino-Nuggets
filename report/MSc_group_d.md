@@ -87,15 +87,18 @@ In particular, the following descriptions should be included:
 
 #### Validation pipeline on pull requests
 
-Our first pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We run SonarQube, CodeQL, and Codeacy for static code analysis. We also run our test workflow, as seen in the diagram above, which runs our tests, linter, and spellchecker misspell through Dagger. SonarQube and Codacy both post a report on the pull request for a quick overview. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request. When both of these conditions are met we can rebase and merge the changes into main.
+Our PR pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We run SonarQube, CodeQL, and Codeacy for static code analysis. We also run our test workflow, as seen in the diagram above, which runs our tests, linter, and spellchecker misspell,   all orchestrated through Dagger. SonarQube and Codacy both post a report on the pull request for a quick overview. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request. When both of these conditions are met the pull request can me merged into main.
 
 <!---
-I'm not sure if we should expand or keep it consice, so here are some leftovers. -Emy
+Maybe there whould be a comment on the ignored security checks?
+I'm not sure if we should expand or keep it consice, so here are some leftovers that could be integrated with some adjustments. -Emy
 SonarQube checks for security vulnerabilities, maintainability, and reliability
-CodeQL analyses Github actions, Go, and javascript-typescript for vulnerabilities.  
+CodeQL analyses Github actions, Go, and javascript-typescript for vulnerabilities.
 -->
 
 #### Release pipeline
+
+Our release pipeline 
 
 Run checks
 run end2end (playwright)
