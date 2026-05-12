@@ -53,3 +53,5 @@ This was the big DB migration night, we ended up writing a long document outlini
 ## 21/04
 The big swarm manager convergance migration. There is a seperate markdown file named `SwarmMigration.md` that outlines exactly how this came to be and what our measured downtime was.
 
+## 08/05
+We worked on replacing the vagrant provisioning with Opentofu (a fork of Terraform). We created an Ansible configuration to ensure idempotency and to have a less convoluted format for this essential step in our pipeline.
