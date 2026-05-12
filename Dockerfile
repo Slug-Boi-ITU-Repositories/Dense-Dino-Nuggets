@@ -8,7 +8,7 @@ COPY templates/ ./templates/
 COPY static/ ./static/
 
 RUN ["go", "mod", "download"]
-ENV CGO_ENABLED=1
+ENV CGO_ENABLED=0
 RUN ["go", "build", "-o", "/out/main", "./src/main.go"]
 
 
