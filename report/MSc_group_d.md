@@ -140,6 +140,15 @@ of your ITU-MiniTwit systems. Link back to respective commit messages, issues, t
 Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
 -->
 
+<!---
+Lil' thoughts:
+
+- Too many tickets -> felt overwhelming and many were just kinda forgotten/we ended up with duplicates
+- Importance of good structure -> again easily overwhelming to keep track of everything as application evolves and grows
+- Knowledge silos/ truck factors -> we started talking about changes we've made throughout the week for Friday meetings.
+
+-->
+
 ## 4. Use of Generative AI
 <!---
 ITU's rules on the use of generative AI apply for this report too. They are described https://itustudent.itu.dk/Study%20Administration/Generative%20AI#Guidelines and in detail https://itustudent.itu.dk/-/media/ITU-Student/Study-Administration/GAI/Generative-AI-guidelines-for-students-Spring-2026-pdf.pdf. Please follow them. For your report that means that you have to state which generative AI tools have been used for which task(s) in your projects. Additionally, describe how generative AI tools have been used and briefly reflect and discuss how they supported or hindered your work process.
