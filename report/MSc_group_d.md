@@ -1,6 +1,6 @@
 # DevOps Group D
 
-| Name    | Email |
+| Name | Email |
 | -------- | ------- |
 | August Kofoed Brandt  | aubr@itu.dk |
 | Emilia Victoria Helsted | ehel@itu.dk |
