@@ -33,6 +33,11 @@ go.work.sum
 # Vagrant ignores
 .vagrant
 
+# Opentofu 
+terraform.tfvars
+./terraform
+.terraform.lock.hcl
+
 # Editor/IDE
 # .idea/
 .vscode/
@@ -61,3 +66,6 @@ node_modules/
 
 # ssh keys
 .ssh
+
+# Ansible
+ansible/inventory.*

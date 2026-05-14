@@ -323,12 +323,8 @@ func public(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	totalMessages, err := MessageRepo.CountPublicTimeline()
-	if err != nil {
-		log.Println(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	totalMessages := MessageRepo.CountPublicTimeline()
+	
 	totalPages := int(math.Ceil(float64(totalMessages) / float64(PER_PAGE)))
 
 	flashes, err := getFlashes(r, w)
