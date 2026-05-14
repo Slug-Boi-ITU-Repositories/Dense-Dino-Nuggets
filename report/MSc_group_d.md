@@ -59,7 +59,8 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | Dependency | Description |
 | ---------- | ----------- |
 | Grafana | A platform for real-time visualization and monitoring of system performance through dashboards. |
-| Loki | A log aggregation system. It only indexes metadata and integrates easily with Grafana |
+| Loki | A log aggregation system. It only indexes metadata and integrates easily with Grafana. |
+| Loki logging driver for docker | Replaces the default logging driver for docker with one provided by loki. It works just like the default driver, but also sends the logs to Loki.
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
 
 ### 1.4 Current State of our Minitwit
