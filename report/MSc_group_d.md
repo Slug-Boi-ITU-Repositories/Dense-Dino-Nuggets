@@ -154,6 +154,10 @@ of your ITU-MiniTwit systems. Link back to respective commit messages, issues, t
 Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
 -->
 
+As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the project.
+
+We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week and how it works. When looking at our tickets we see that we have many stale tickets and a few duplicates. We could probably have benefitted from more structure in our work such as taking inspiration from sprint planning sessions from the SCRUM framework.
+
 <!---
 Lil' thoughts:
 
