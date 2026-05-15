@@ -145,7 +145,7 @@ One large issue we ran into was that our Promethus setup was not collecting accu
 
 After performing a security assesment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
 
-We hardened our containers by ensuring that they use a non-root user and by scanning our images for vulnerabilities. We found 4 severe, 3 moderate and 26 low severity vulnerabilities. Most of these were because we used an old linux distribution so we switched to a newer one. The remaining low severity vulnerabilities were fixed by updating our Go dependencies.
+We hardened our containers by ensuring that they use a non-root user and by scanning our images for vulnerabilities manually with docker scout. We found 4 severe, 3 moderate and 26 low severity vulnerabilities. Most of these were because we used an old linux distribution so we switched to a newer one. The remaining low severity vulnerabilities were fixed by updating our Go dependencies.
 
 We have included the static code analysis tool CodeQL in our CI pipeline for scanning for security vulnerabilities in all our pull requests. We have also enabled alerts from Dependabot to ensure up-to-date dependencies.
 
