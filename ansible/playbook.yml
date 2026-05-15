@@ -49,7 +49,7 @@
     stack_name: minitwit
     noip_image: ghcr.io/noipcom/noip-duc:3.3.0
     noip_container: noip-duc
-    noip_env_file: /vagrant/.env
+    noip_env_file: /vagrant/.env_noip
     monitor_state_dir: /vagrant/monitor
 
   pre_tasks:
@@ -323,6 +323,17 @@
         owner: root
         group: root
         mode: "0755"
+
+    - name: Copy noip env file 
+      ansible.builtin.copy:
+        src: "../.env_noip"
+        dest: "{{ noip_env_file }}"
+        owner: root
+        group: root
+        mode: "0755"
+      when:
+        - noip_env_file.stat.exists
+
     
     - name: Run monitor setup through SSH when no saved monitor state exists
       ansible.builtin.shell: |
@@ -527,9 +538,9 @@
         restart_policy: unless-stopped
         state: started
       when:
-        - noip_username | default('') | length > 0
-        - noip_password | default('') | length > 0
-        - noip_hostnames | default('') | length > 0
+        - noip_username | length > 0
+        - noip_password | length > 0
+        - noip_hostnames | length > 0
 
     # Certbot
     - name: Obtain or renew TLS certificate
