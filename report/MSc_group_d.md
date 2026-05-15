@@ -153,7 +153,7 @@ Lastly we wanted scan for Docker image vulnerabilities using Trivy, as it seems 
 
 ### 2.5 Availability and Scaling
 
-To address availabilty of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 2 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. That way updating and restarting monitoring as well as application related services can all be managed by one machines. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
+To address availabilty of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 3 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. That way updating and restarting monitoring as well as application related services can all be managed by one machines. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
 
 1. Start minitwit application replicas on other droplets such that there are still replicas availble if one droplet goes down.
 2. Convert the testing droplet into a droplet thats part of the production setup. This would allow us to set all 3 droplets as managers, which would let us maintain a manager if one droplet goes down.
