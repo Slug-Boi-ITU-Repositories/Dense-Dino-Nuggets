@@ -102,16 +102,16 @@ jobs:
       - name: Setup environment
         uses: actions/checkout@v4
       - name: Set up SSH Agent
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
+        uses: webfactory/ssh-agent@e83874834305fe9a4a2997156cb26c5de65a8555
         with:
           ssh-private-key: |
             ${{ secrets.SSH_KEY_APP }}
             ${{ secrets.SSH_KEY_MONITOR }}
-          known-hosts: | 
-            ${{ secrets.APP_KNOWN_HOST }}
-            ${{ secrets.MONITOR_KNOWN_HOST }}
       - name: Manual Ansible Setup and Provision
         run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.APP_KNOWN_HOST }}" >> ~/.ssh/known_hosts
+          echo "${{ secrets.MONITOR_KNOWN_HOST }}" >> ~/.ssh/known_hosts
           echo "=== known_hosts ===" 
           cat ~/.ssh/known_hosts
           echo "=== ssh-agent keys ==="
