@@ -74,6 +74,13 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
 
 ### 1.4 Current State of our Minitwit
+- Linter outputs (CodeQL is happy)
+- Scanning tools from github
+- Sonarcloud:
+    - We spent significant time working around SonarCloud's code duplication requirements, because it would mark our golang err checks as duplicate code, often preventing us from merging PRs. We also had some issues with SonarCloud's security rating before adding TLS as it would mark every cookie sent as a vulnerability (because the secure flag was set to false).
+- dependabot: Has 6 security alerts.
+- dockerscout: Currently has found 1 moderate vulnerability on our image again caused by the currently chosen linux distribution
+- Test suite: Passes all tests
 
 ## 2. Process' perspective
  <!---
