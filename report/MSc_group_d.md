@@ -178,7 +178,7 @@ Lil' thoughts:
 
 Technical debt in the form of Process debt.
 
-Generative AI adds technical debt -> Not tried that before.
+Generative AI adds/reduces technical debt -> Not tried that before.
 
 From the DevOps handbook:
 - We have a high lead time
@@ -198,6 +198,8 @@ We have used the following generative models while working on our Minitwit:
 - ChatGPT
 - DeepSeek
 - Claude
+
+While Generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included whithout being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantiable amount of time on fixing the generated code.
 
 <!---
 Just some flowy thoughts:
