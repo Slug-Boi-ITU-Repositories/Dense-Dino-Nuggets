@@ -181,7 +181,9 @@ When looking at our tickets we see that we have many stale tickets and a few dup
 
 We could probably have benefitted from more structure in our work such as taking inspiration from sprint planning sessions from the SCRUM framework.
 
-We did not work in a DevOps style. We mostly just divided tasks up among us and worked on our own. We would definetly have benefitted from doing more pair programming and more clear communication but our schedules did not match well for that.
+A significant change with this project is the fact that we were responsible for operations after deployment. The project required a shift to a continuous delivery mindset where we had to focus more on quality and maintainability than previously. We set up an extended feedback loop which ensured that we were constantly aware of 
+
+ The whole process came with a higher need for coordination than previous projects due to shifting demands and complexity.
 
 <!---
 Lil' thoughts:
@@ -209,7 +211,7 @@ We have used the following generative models while working on our Minitwit:
 - DeepSeek
 - Claude
 
-Throughout the course have used generative AI to help us understand different topics and technologies, so we could easier work with them.
+Throughout the course have used generative AI to explain code and help us understand different topics and technologies, so we could easier work with them.
 
 When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue.
 
