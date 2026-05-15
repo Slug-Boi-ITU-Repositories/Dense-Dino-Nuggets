@@ -159,16 +159,23 @@ As the course progressed challenges of our project slowly became less about impl
 
 We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week and how it works. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
-When looking at our tickets we see that we have many stale tickets and a few duplicates. We could probably have benefitted from more structure in our work such as taking inspiration from sprint planning sessions from the SCRUM framework.
+When looking at our tickets we see that we have many stale tickets and a few duplicates.
 
-We did not work in a DevOps style. We mostly just divided tasks up among us and worked on our own. We would definetly have benefitted from doing more pair programming but our schedules did not match well for that.
+We could probably have benefitted from more structure in our work such as taking inspiration from sprint planning sessions from the SCRUM framework.
+
+
+We did not work in a DevOps style. We mostly just divided tasks up among us and worked on our own. We would definetly have benefitted from doing more pair programming and more clear communication but our schedules did not match well for that.
 
 <!---
 Lil' thoughts:
 
-- Too many tickets -> felt overwhelming and many were just kinda forgotten/we ended up with duplicates
-- Importance of good structure -> again easily overwhelming to keep track of everything as application evolves and grows
-- Knowledge silos/ truck factors -> we started talking about changes we've made throughout the week for Friday meetings.
+Technical debt in the form of Process debt.
+
+Generative AI adds technical debt -> Not tried that before.
+
+From the DevOps handbook:
+- We have a high lead time
+
 
 -->
 
