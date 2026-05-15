@@ -199,20 +199,16 @@ We have used the following generative models while working on our Minitwit:
 - DeepSeek
 - Claude
 
-We have used generative AI to help us understand different topics and technologies, so we could work with them easier.
+Throughout the course have used generative AI to help us understand different topics and technologies, so we could easier work with them.
 
 When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue.
 
 While Generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantiable amount of time on fixing the generated code.
-Introducing AI generated code into our codebase also meant that we had code that we did not necessarily understand, which is bad for maintainability.
+Introducing AI generated code into our codebase also meant that we had code that we did not necessarily understand, which is bad for maintainability. In general we should have been more critical of our use of generative AI as it takes away from our learning when it does our work for us.
 
 <!---
 Just some flowy thoughts:
 I belive we accidently set up CodePilot reviews for some pull requests
-
-In general we have used generative AI to help explain topics and technologies so we could better understand them. 
-
-When refactoring the tests from the original Minitwit, ChatGPT was used for debugging and identifying where the issue was, when there were issues with flashes not being set correctly in main.
 
 For tasks such as translating our vagrant file of over 500 lines of code to an ansible it seemed smart to use generative AI. We did however run into problems with ChatGPT directly translating the code rather that using the perks of ansible to write "good" code. We had to spend a lot of time on fixing the generated code and while there was some learning in it we could have gotten more out of doing it from scratch
 -->
