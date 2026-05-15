@@ -39,7 +39,7 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
 | Certbot | An open-source tool for automatically obtaining and renewing TLS certificates to enable HTTPS |
-| No-IP | A domain name provider, providing Dynamic DNS to keep our droplet IP in sync with the hostname through a their DUC which we keep running on our droplet. |
+| No-IP | A domain name provider, providing Dynamic DNS to keep our droplet IP in sync with the hostname through a their DUC which we keep running on our droplet. |
 | Ansible | Open-source automation tool for provisioning and configuring infrastructure through declarative playbooks. Replaces Vagrant. |
 | Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments. It manages virtual machines defined in vagrantfiles. |
 
