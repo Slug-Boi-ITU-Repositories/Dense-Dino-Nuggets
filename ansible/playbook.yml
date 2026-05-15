@@ -7,7 +7,7 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: prod # TODO change this # Which machines to run on
+  hosts: app # TODO change this # Which machines to run on
   become: true # Run commands as sudo when true
   vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
@@ -324,6 +324,11 @@
         group: root
         mode: "0755"
 
+    - name: Register noip env file to script
+      ansible.builtin.stat:
+        path: "{{ noip_env_file }}"
+      register: noip_file
+
     - name: Copy noip env file 
       ansible.builtin.copy:
         src: "../.env_noip"
@@ -332,7 +337,7 @@
         group: root
         mode: "0755"
       when:
-        - not noip_env_file.stat.exists
+        - not noip_file.stat.exists
 
     
     - name: Run monitor setup through SSH when no saved monitor state exists
@@ -537,10 +542,6 @@
         env_file: "{{ noip_env_file }}"
         restart_policy: unless-stopped
         state: started
-      when:
-        - noip_username | length > 0
-        - noip_password | length > 0
-        - noip_hostnames | length > 0
 
     # Certbot
     - name: Obtain or renew TLS certificate
