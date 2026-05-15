@@ -332,7 +332,7 @@
         group: root
         mode: "0755"
       when:
-        - noip_env_file.stat.exists
+        - not noip_env_file.stat.exists
 
     
     - name: Run monitor setup through SSH when no saved monitor state exists
@@ -552,8 +552,8 @@
         --redirect
         -d {{ noip_hostnames }}
       when:
-        - certbot_email | default('') | length > 0
-        - noip_hostnames | default('') | length > 0
+        - certbot_email | length > 0
+        - noip_hostnames | length > 0
 
     # Render Docker Compose file
     - name: Render Docker Compose from template
