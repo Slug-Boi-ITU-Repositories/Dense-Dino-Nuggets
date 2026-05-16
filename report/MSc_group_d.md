@@ -43,11 +43,11 @@ Our Minitwit uses the following dependencies:
 | PostgreSQL | Open-source relational database. |
 | GORM | ORM library for Go. Adds an abstraction layer between our application and the database |
 | Nginx | Acts as a reverse proxy |
-| Docker | Enables containerization of system components and orhcestration of nodes using Docker swarm |
+| Docker | Enables containerization of system components and orchestration of nodes using Docker swarm |
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
 | Certbot | An open-source tool for automatically obtaining and renewing TLS certificates to enable HTTPS |
-| No-IP | A domain name provider, providing Dynamic DNS to keep our droplet IP in sync with the hostname through a their DUC which we keep running on our droplet. |
+| No-IP | A Dynamic DNS provider that keeps the domain name in sync with the droplet's IP address using a DUC running on the server |
 | Ansible | Open-source automation tool for provisioning and configuring infrastructure through declarative playbooks. Replaces Vagrant. |
 | Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments. It manages virtual machines defined in vagrantfiles. |
 
@@ -138,22 +138,22 @@ Data is gathered from the minitwit application by pulling with Prometheus. Logs 
 - If the server is running or is down
 - The 99'th and 99.9'th percentile of response time to see if we have requests that are taking longer than they should
 - The average time requests take to know how the system is responding in general
-- The amount of requests pr second to see the load on the system
+- The amount of requests per second to see the load on the system
 - The logs from minitwit to see what is happening on the system
 
 #### Alerting
 
-We set up an alert that used Grafana's build in Discord web hook, such that a Discord bot would send a message in our Discord server in case the minitwit system went down or was unreachable by Prometheus. We tested this artificially but never in practice since the system did not go down after we added the alert.
+We set up an alert that used Grafana's built-in Discord web hook, such that a Discord bot would send a message in our Discord server in case the minitwit system went down or was unreachable by Prometheus. We tested this artificially but never in practice since the system did not go down after we added the alert.
 
 #### Monitoring issues
 
-One large issue we ran into was that our Promethus setup was not collecting accurate infromation from the minitwit system, after we started using swarm to have multiple replicas. This was an unfortunate side effect of Prometheus being a pull system. Because, when Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we needed to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus such that it would be able to aggregate data from all the replicas, or show data for each replica. However, we did not have the time to implement this as there where other things that took higher priority, so this never reached the top of the priority list.
+One large issue we ran into was that our Prometheus setup was not collecting accurate information from the minitwit system, after we started using swarm to have multiple replicas. This was an unfortunate side effect of Prometheus being a pull system. Because, when Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we needed to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus such that it would be able to aggregate data from all the replicas, or show data for each replica. However, we did not have the time to implement this as there were other things that took higher priority, so this never reached the top of the priority list.
 
 ### 2.3 Logging
 
 ### 2.4 Hardening of Minitwit
 
-After performing a security assesment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
+After performing a security assessment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
 
 We hardened our containers by ensuring that they use a non-root user and by scanning our images for vulnerabilities manually with docker scout. We found 4 severe, 3 moderate and 26 low severity vulnerabilities. Most of these were because we used an old linux distribution, so we switched to a newer one. The remaining low severity vulnerabilities were fixed by updating our Go dependencies.
 
@@ -163,9 +163,9 @@ Lastly we wanted to scan for Docker image vulnerabilities using Trivy, as it see
 
 ### 2.5 Availability and Scaling
 
-To address availabilty of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 3 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. This way updating and restarting monitoring, as well as application related services can all be managed by one machines. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
+To address availability of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 3 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. This way updating and restarting monitoring, as well as application related services, can all be managed by one machine. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
 
-1. Start minitwit application replicas on other droplets such that there are still replicas availble if one droplet goes down.
+1. Start minitwit application replicas on other droplets such that there are still replicas available if one droplet goes down.
 2. Convert the testing droplet into a droplet that is part of the production setup. This would allow us to set all 3 droplets as managers, which would let us maintain a manager if one droplet goes down.
 3. Setup another Postgres service on a different droplet to act as a backup using Postgres streaming replication. Then the system can switch to this database if the main database goes down.
 
@@ -221,11 +221,11 @@ We have used the following generative models while working on our Minitwit:
 - DeepSeek
 - Claude
 
-Throughout the course have used generative AI to explain code and help us understand different topics and technologies, so we could easier work with them.
+Throughout the course we have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them.
 
 When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue.
 
-While Generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantiable amount of time on fixing the generated code.
+While Generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantial amount of time on fixing the generated code.
 Introducing AI generated code into our codebase also meant that we had code that we did not necessarily understand, which is bad for maintainability. In general we should have been more critical of our use of generative AI as it takes away from our learning when it does our work for us.
 
 <!---
