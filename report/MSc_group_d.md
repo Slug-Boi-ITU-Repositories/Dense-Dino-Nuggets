@@ -216,22 +216,20 @@ From the guidelines:
 • State which generative AI technology has been used.
 • Describe how generative AI technology has been used.
 -->
-We have used the following generative models while working on our Minitwit:
+Our project includes AI-assisted code. We have used the following generative models while working on our Minitwit:
 
 - ChatGPT
 - DeepSeek
 - Claude
 
-Throughout the course we have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them.
+Throughout the course we have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them. When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue. We have also used generative AI for code generation and to aid us in refactoring parts of the project. We have not tracked our AI usage systematically, so we are not able to identify all specific instances where generated code has been included.
 
-When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue.
-
-While Generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantial amount of time on fixing the generated code.
+While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantial amount of time on fixing the generated code.
 Introducing AI generated code into our codebase also meant that we had code that we did not necessarily understand, which is bad for maintainability. In general we should have been more critical of our use of generative AI as it takes away from our learning when it does our work for us.
 
 <!---
 Just some flowy thoughts:
 I belive we accidently set up CodePilot reviews for some pull requests
 
-For tasks such as translating our vagrant file of over 500 lines of code to an ansible it seemed smart to use generative AI. We did however run into problems with ChatGPT directly translating the code rather that using the perks of ansible to write "good" code. We had to spend a lot of time on fixing the generated code and while there was some learning in it we could have gotten more out of doing it from scratch
+As a group, we did not establish a formal policy or set of guidelines for the use of generative AI during the project, and usage was therefore informal and unregulated. Generative AI was used by multiple team members for tasks such as code generation, debugging, refactoring, and explanation of technical concepts. Since usage was not systematically documented at commit or task level, it is not possible to precisely attribute which parts of the codebase were AI-assisted. However, all contributions, including AI-assisted code, were reviewed and integrated by the team as part of the normal development workflow.
 -->
