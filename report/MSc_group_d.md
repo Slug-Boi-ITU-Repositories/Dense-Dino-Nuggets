@@ -169,7 +169,7 @@ To address availability of the system we made use of Docker Swarm. As seen in th
 2. Convert the testing droplet into a droplet that is part of the production setup. This would allow us to set all 3 droplets as managers, which would let us maintain a manager if one droplet goes down.
 3. Setup another Postgres service on a different droplet to act as a backup using Postgres streaming replication. Then the system can switch to this database if the main database goes down.
 
-The reason we have not implemented these solutions is a combination of lack of time, and the need to have a testing droplet for testing our migration to Ansible and OpenTofu. We were limited to 3 droplets by the fact that we where using GitHub education.
+The reason we have not implemented these solutions is a combination of lack of time, and the need to have a testing droplet for testing our migration to Ansible and OpenTofu. We were limited to 3 droplets by the fact that we were using GitHub education.
 
 ## 3. Reflection Perspective
 <!---
