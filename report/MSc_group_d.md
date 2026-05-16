@@ -130,7 +130,7 @@ We need to make the release diagram and fix the placeholder here!!!!
 
 #### Dashboard structure
 
-This is how our minitoring dashboard looks
+This is how our monitoring dashboard looks
 ![minitwit_dashboard.png](./images/minitwit_dashboard.png)
 
 Data is gathered from the minitwit application by pulling with Prometheus. Logs are aquired by using the Loki logging driver on our minitwit containers, which push to an aggregator container on the monitoring machine. Grafana can then pull data from Prometheus and Loki to display in the dashboard. The dashboard shows:
