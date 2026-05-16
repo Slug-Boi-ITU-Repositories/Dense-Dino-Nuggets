@@ -23,13 +23,13 @@ A description and illustration of the:
 
 ![Allocation diagram of the Minitwit system](images/allocation-diagram.png)
 
-The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 3 droplets running on digital ocean. One droplet runs the application software in a docker container, which both browser users and the simulator connect to, through an nginx reverse-proxy. The application container is replicated using docker swarm. This droplet also contains the minitwit database, which is stored on an attached volume. The application container running on the droplet uses a loki logging driver which acts as a middleware by sending logs to the loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet.
+The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 3 droplets running on digital ocean. One droplet runs the application software in a docker container, which both browser users and the simulator connect to, through an nginx reverse-proxy. The application container is replicated using docker swarm. This droplet also contains the minitwit database, which is stored on an attached volume. The application container running on the droplet uses a Loki logging driver which acts as a middleware by sending logs to the Loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the Prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet.
 
-Another droplet runs the monitoring and logging containers. Loki aggregates logs from the application droplet. Prometheus pulls metrics from the application. Grafana pulls the logs from loki and the metrics from prometheus, and displays them in a dashboard.
+Another droplet runs the monitoring and logging containers. Loki aggregates logs from the application droplet. Prometheus pulls metrics from the application. Grafana pulls the logs from Loki and the metrics from Prometheus, and displays them in a dashboard.
 
 The third and last droplet runs a test environment and is not shown in the diagram above, as it is identical to the application droplet with the exception of not having a volume.
 
-The whole system can be booted up through opentofu, which is able to create the digital ocean droplets, and configure and run the application through ansible.
+The whole system can be booted up through OpenTofu, which is able to create the digital ocean droplets, and configure and run the application through ansible.
 
 ### 1.3 Dependencies
 
@@ -74,10 +74,11 @@ I have kept the descriptions very short due to the word limit of the report. Fee
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
 
 ### 1.4 Current State of our Minitwit
+
 - Linter outputs (CodeQL is happy)
 - Scanning tools from github
 - Sonarcloud:
-    - We spent significant time working around SonarCloud's code duplication requirements, because it would mark our golang err checks as duplicate code, often preventing us from merging PRs. We also had some issues with SonarCloud's security rating before adding TLS as it would mark every cookie sent as a vulnerability (because the secure flag was set to false).
+  - We spent significant time working around SonarCloud's code duplication requirements, because it would mark our golang err checks as duplicate code, often preventing us from merging PRs. We also had some issues with SonarCloud's security rating before adding TLS as it would mark every cookie sent as a vulnerability (because the secure flag was set to false).
 - dependabot: Has 6 security alerts.
 - dockerscout: Currently has found 1 moderate vulnerability on our image again caused by the currently chosen linux distribution
 - Test suite: Passes all tests
