@@ -36,9 +36,7 @@ The whole system can be booted up through OpenTofu, which is able to create the 
 Our Minitwit uses the following dependencies:
 
 #### Core dependencies
-<!---
-I have kept the descriptions very short due to the word limit of the report. Feel free to make changes to them. - Emy
--->
+
 | Dependency | Description |
 | ---------- | ----------- |
 | Golang | Open-source programming language by Google. |
@@ -122,6 +120,10 @@ Below is a flowchart showing the Test CI pipeline. The start is on the left when
 
 Below is a flowchart showing the Release CI pipeline. It is triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact and publish a Docker image, making the new version of Minitwit ready for deployment.
 
+<!--
+We need to make the release diagram and fix the placeholder here!!!!
+-->
+
 ![release_CI_pipeline.png](images/release_CI_pipeline.png)
 
 ### 2.2 Monitoring of Minitwit
@@ -153,21 +155,21 @@ One large issue we ran into was that our Promethus setup was not collecting accu
 
 After performing a security assesment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
 
-We hardened our containers by ensuring that they use a non-root user and by scanning our images for vulnerabilities manually with docker scout. We found 4 severe, 3 moderate and 26 low severity vulnerabilities. Most of these were because we used an old linux distribution so we switched to a newer one. The remaining low severity vulnerabilities were fixed by updating our Go dependencies.
+We hardened our containers by ensuring that they use a non-root user and by scanning our images for vulnerabilities manually with docker scout. We found 4 severe, 3 moderate and 26 low severity vulnerabilities. Most of these were because we used an old linux distribution, so we switched to a newer one. The remaining low severity vulnerabilities were fixed by updating our Go dependencies.
 
 We have included the static code analysis tool CodeQL in our CI pipeline for scanning for security vulnerabilities in all our pull requests. We have also enabled alerts from Dependabot to ensure up-to-date dependencies.
 
-Lastly we wanted scan for Docker image vulnerabilities using Trivy, as it seems to easily be integrated to our pipeline in a shift-left manner. We did however not have time for this.
+Lastly we wanted to scan for Docker image vulnerabilities using Trivy, as it seems to easily be integrated to our pipeline in a shift-left manner. We did however not have time for this.
 
 ### 2.5 Availability and Scaling
 
-To address availabilty of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 3 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. That way updating and restarting monitoring as well as application related services can all be managed by one machines. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
+To address availabilty of the system we made use of Docker Swarm. As seen in the allocation diagram, one droplet is the swarm manager, which has the Postgresql database as well as 3 replicas of the minitwit application. The monitoring machine is a swarm worker that can be managed by the manager. This way updating and restarting monitoring, as well as application related services can all be managed by one machines. There is a glaring issue with this setup however. If the manager node goes down for some reason, then the application is no longer available. The way that we could have fixed this would be to:
 
 1. Start minitwit application replicas on other droplets such that there are still replicas availble if one droplet goes down.
-2. Convert the testing droplet into a droplet thats part of the production setup. This would allow us to set all 3 droplets as managers, which would let us maintain a manager if one droplet goes down.
+2. Convert the testing droplet into a droplet that is part of the production setup. This would allow us to set all 3 droplets as managers, which would let us maintain a manager if one droplet goes down.
 3. Setup another Postgres service on a different droplet to act as a backup using Postgres streaming replication. Then the system can switch to this database if the main database goes down.
 
-The reason we haven't implemented these solution is a combination of lack of time, and the need to have a testing droplet for testing our migration to Ansible and OpenTofu. We were limited to 3 droplets by the fact that we where using GitHub education.
+The reason we have not implemented these solutions is a combination of lack of time, and the need to have a testing droplet for testing our migration to Ansible and OpenTofu. We were limited to 3 droplets by the fact that we where using GitHub education.
 
 ## 3. Reflection Perspective
 <!---
