@@ -7,7 +7,7 @@
 
 ---
 - name: Provision and deploy Minitwit application server
-  hosts: prod # TODO change this # Which machines to run on
+  hosts: app # TODO change this # Which machines to run on
   become: true # Run commands as sudo when true
   vars:
     docker_username: "{{ lookup('env', 'DOCKER_USERNAME') | default(lookup('env', 'USERNAME'), true) | default('flakiator', true) }}"
@@ -49,7 +49,7 @@
     stack_name: minitwit
     noip_image: ghcr.io/noipcom/noip-duc:3.3.0
     noip_container: noip-duc
-    noip_env_file: /vagrant/.env
+    noip_env_file: /vagrant/.env_noip
     monitor_state_dir: /vagrant/monitor
 
   pre_tasks:
@@ -204,6 +204,45 @@
       failed_when: false
       changed_when: false
 
+    # Installs for TLS
+    - name: install Nginx + firewall + certbot
+      apt:
+        name:
+          - nginx
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    # Start Nginx
+    - name: Ensure nginx is running
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    # Firewall (UFW)
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow HTTPS via nginx
+      community.general.ufw:
+        rule: allow
+        name: "Nginx Full"
+      
+    - name: Allow docker swarm ports
+      ansible.builtin.shell: |
+        ufw allow 2377/tcp
+        ufw allow 7946
+        ufw allow 4789/udp
+      
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
     - name: Enable Loki plugin when present
       ansible.builtin.command:
         argv:
@@ -323,6 +362,22 @@
         owner: root
         group: root
         mode: "0755"
+
+    - name: Register noip env file to script
+      ansible.builtin.stat:
+        path: "{{ noip_env_file }}"
+      register: noip_file
+
+    - name: Copy noip env file 
+      ansible.builtin.copy:
+        src: "../.env_noip"
+        dest: "{{ noip_env_file }}"
+        owner: root
+        group: root
+        mode: "0755"
+      when:
+        - not noip_file.stat.exists
+
     
     - name: Run monitor setup through SSH when no saved monitor state exists
       ansible.builtin.shell: |
@@ -461,38 +516,7 @@
               device: "{{ volume_mount }}"
               o: bind
 
-    # Installs for TLS
-    - name: install Nginx + firewall + certbot
-      apt:
-        name:
-          - nginx
-          - ufw
-          - certbot
-          - python3-certbot-nginx
-        state: present
-        update_cache: yes
-
-    # Start Nginx
-    - name: Ensure nginx is running
-      ansible.builtin.systemd:
-        name: nginx
-        state: started
-        enabled: true
-
-    # Firewall (UFW)
-    - name: Allow SSH
-      community.general.ufw:
-        rule: allow
-        name: OpenSSH
-
-    - name: Allow HTTPS via nginx
-      community.general.ufw:
-        rule: allow
-        name: "Nginx Full"
-
-    - name: Enable UFW
-      community.general.ufw:
-        state: enabled
+    
 
     # Nginx configuration
     - name: Deploy nginx site config
@@ -526,10 +550,6 @@
         env_file: "{{ noip_env_file }}"
         restart_policy: unless-stopped
         state: started
-      when:
-        - noip_username | default('') | length > 0
-        - noip_password | default('') | length > 0
-        - noip_hostnames | default('') | length > 0
 
     # Certbot
     - name: Obtain or renew TLS certificate
