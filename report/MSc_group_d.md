@@ -93,6 +93,8 @@ We added Dependabot late into the project and still have open security issues, w
 
 To ensure code quality, we use the static code analysis tools Codacy, SonarQube Cloud, and CodeQL on pull requests. This mitigates misspelled words, code duplication, security issues, etc.  SonarQube is currently not passing on our main branch. It was poorly configured for our project and did not add a lot of value to our process. All other checks pass.
 
+![SonarQube Output](images/SonarQube.png)
+
 #### Testing
 
 We refactored the existing test suite from the original version of Minitwit and added end-to-end tests to test the UI parts of the web app. We didn't have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
