@@ -124,7 +124,7 @@ This is how our monitoring dashboard looks
 Our monitoring dashboard tracks the following:
 
 - If the server is running or is down
-- The 99'th and 99.9'th percentile of response time to see if we have requests that are taking longer than they should
+- The 99'th and 99.9'th percentile of response time
 - The average time requests take to know how the system is responding in general
 - The amount of requests per second to see the load on the system
 - The logs from minitwit to see what is happening on the system
