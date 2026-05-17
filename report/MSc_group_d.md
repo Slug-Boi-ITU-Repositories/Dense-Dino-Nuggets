@@ -110,7 +110,7 @@ Our PR pipeline is triggered on pull requests and pushes to main to ensure the q
 
 #### Release Pipeline
 
-Below is a flowchart showing the Release CI pipeline. It is triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact and publish a Docker image, making the new version of Minitwit ready for deployment.
+Below is a flowchart showing the Release CI pipeline. It is triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact and publish a Docker image, and provision the new image to our DO droplet.
 
 ![release_CI_pipeline.png](images/test_CI_pipeline_release.png)
 
