@@ -9,16 +9,6 @@
 | Theis Per Holm | <thph@itu.dk> |
 
 ## 1. System's Perspective
-<!---
-Here we need:
-A description and illustration of the:
-
-- Design and architecture of your ITU-MiniTwit systems.
-
-- All dependencies of your ITU-MiniTwit systems on all levels of abstraction and development stages. That is, list and briefly describe all technologies and tools you applied and depend on.
-
-- Describe the current state of your systems, for example using results of static analysis and quality assessments.
--->
 ### 1.2 Design and Architecture
 
 ![Allocation diagram of the Minitwit system](images/allocation-diagram.png)
@@ -109,22 +99,6 @@ We refactored the existing test suite from the original version of Minitwit and 
 The monitoring droplet currently does not mount the services that are running on it as docker volumes. This would need to be added to the docker-compose file for the data to be accessible for the different containers. Previously we had set this up by mounting a file path (when we were still using vagrant), this was not mirrored in the migration to OpenTofu. Other than this small discrepancy the IaC should match the current system.
 
 ## 2. Process' perspective
- <!---
-This perspective should clarify how code or other artifacts come from idea into the running system and everything that happens on the way.
-
-In particular, the following descriptions should be included:
-
-- A complete description and illustration of stages and tools included in the CI/CD pipelines, including deployment and release of your systems.
-
-- How do you monitor your systems and what precisely do you monitor?
-
-- What do you log in your systems and how do you aggregate logs?
-
-- Brief description of how you security hardened your systems.
-
-- How do you handle availability and scaling in your systems?
--->
-
 ### 2.1 CI/CD Pipelines
 
 #### Validation pipeline on pull requests
@@ -133,23 +107,9 @@ Our PR pipeline is triggered on pull requests and pushes to main to ensure the q
 
 ![test_CI_pipeline.png](images/test_CI_pipeline_test.png)
 
-<!---
-Maybe there whould be a comment on the ignored security checks?
-I'm not sure if we should expand or keep it consice, so here are some leftovers that could be integrated with some adjustments. -Emy
-SonarQube checks for security vulnerabilities, maintainability, and reliability
-CodeQL analyses Github actions, Go, and javascript-typescript for vulnerabilities.
-
-Theis' description. Nice to keep around for now.
-Below is a flowchart showing the Test CI pipeline. The start is on the left when a developer pushes code to a PR or a push happens on the branch Main (e.g. when code is merged or rebased onto it). The pipeline uses Dagger which is mentioned in our depenedency tables above. This allows us to create multiplatform workflows (that is workflows that will work on any platform that has some type of action runner) with minimal setup. All the platform specific workflow has to do is start the dagger engine and run the checks.
--->
-
 #### Release Pipeline
 
 Below is a flowchart showing the Release CI pipeline. It is triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact and publish a Docker image, making the new version of Minitwit ready for deployment.
-
-<!--
-We need to make the release diagram and fix the placeholder here!!!!
--->
 
 ![release_CI_pipeline.png](images/test_CI_pipeline_release.png)
 
@@ -201,17 +161,6 @@ To address availability of the system we made use of Docker Swarm. As seen in th
 The reason we have not implemented these solutions is a combination of lack of time, and the need to have a testing droplet for testing our migration to Ansible and OpenTofu. We were limited to 3 droplets by the fact that we were using GitHub education.
 
 ## 3. Reflection Perspective
-<!---
-Describe the biggest issues, how you solved them, and which are major lessons learned with regards to:
-
-- evolution and refactoring
-- operation
-- maintenance
-of your ITU-MiniTwit systems. Link back to respective commit messages, issues, tickets, etc. to illustrate these.
-
-Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
--->
-
 As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the system.
 
 We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
@@ -223,28 +172,7 @@ A significant change with this project is the fact that we were responsible for 
 
  The whole process came with a higher need for coordination than previous projects due to shifting demands and complexity.
 
-<!---
-Lil' thoughts:
-
-"Awareness is not resolution"
- 
-Technical debt in the form of Process debt.
-
-Generative AI adds/reduces technical debt -> Not tried that before. Belongs to GenAI part
-
-From the DevOps handbook:
-- We have a high lead time
-
--->
-
 ## 4. Use of Generative AI
-<!---
-ITU's rules on the use of generative AI apply for this report too. They are described https://itustudent.itu.dk/Study%20Administration/Generative%20AI#Guidelines and in detail https://itustudent.itu.dk/-/media/ITU-Student/Study-Administration/GAI/Generative-AI-guidelines-for-students-Spring-2026-pdf.pdf. Please follow them. For your report that means that you have to state which generative AI tools have been used for which task(s) in your projects. Additionally, describe how generative AI tools have been used and briefly reflect and discuss how they supported or hindered your work process.
-
-From the guidelines:
-• State which generative AI technology has been used.
-• Describe how generative AI technology has been used.
--->
 Our project includes AI-assisted code. We have used the following generative models while working on our Minitwit:
 
 - ChatGPT
@@ -255,13 +183,6 @@ Throughout the course we have used generative AI to explain code and help us und
 
 While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of shell script code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of many Ansible specific features. Due to this we had to spend a substantial amount of time on fixing and extending the generated code.
 In general we should have been more critical of our use of generative AI as it sometimes became a bit of a crutch and took away from our learning when it did our work for us.
-
-<!---
-Just some flowy thoughts:
-I belive we accidently set up CodePilot reviews for some pull requests
-
-As a group, we did not establish a formal policy or set of guidelines for the use of generative AI during the project, and usage was therefore informal and unregulated. Generative AI was used by multiple team members for tasks such as code generation, debugging, refactoring, and explanation of technical concepts. Since usage was not systematically documented at commit or task level, it is not possible to precisely attribute which parts of the codebase were AI-assisted. However, all contributions, including AI-assisted code, were reviewed and integrated by the team as part of the normal development workflow.
--->
 
 ## Appendix
 
