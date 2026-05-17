@@ -76,7 +76,7 @@ The group did a security assessment of the system and concluded the following.
 - Infrastructure misconfiguration presents significant risk
 - Proper security controls significantly reduce overall risk exposure
 
-The background for these findings was outlined in security assessment which can be found through the link in the appendix.
+The background for these findings was outlined in security assessment, which can be found through the link in the appendix.
 
 Additionally for security we used dockerscout to find vulnerabilities in our dockerimage. The initial run resulted in 40 total vulnerabilities 4 of them being high severity.
 
