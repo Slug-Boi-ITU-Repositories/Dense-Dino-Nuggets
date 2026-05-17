@@ -8,8 +8,13 @@ if [ -z "$SWARM_MANAGER_IP" ]; then
     exit 1
 fi
 
+
 sudo apt-get update -y
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
+sudo apt-get install -y ca-certificates curl gnupg lsb-release ufw
+
+ufw allow 2377/tcp
+ufw allow 7946
+ufw allow 4789/udp
 
 # Uninstall conflicting packages
 sudo apt remove --ignore-missing $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
