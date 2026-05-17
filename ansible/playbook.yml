@@ -540,9 +540,6 @@
         --keep-until-expiring
         --redirect
         -d {{ noip_hostnames }}
-      when:
-        - certbot_email | default('') | length > 0
-        - noip_hostnames | default('') | length > 0
 
     # Render Docker Compose file
     - name: Render Docker Compose from template
