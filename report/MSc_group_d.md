@@ -183,7 +183,7 @@ of your ITU-MiniTwit systems. Link back to respective commit messages, issues, t
 Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
 -->
 
-As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the project.
+As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the system.
 
 We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week and how it works. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
