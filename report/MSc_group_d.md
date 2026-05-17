@@ -160,7 +160,7 @@ We need to make the release diagram and fix the placeholder here!!!!
 This is how our monitoring dashboard looks
 ![minitwit_dashboard.png](./images/minitwit_dashboard.png)
 
-Data is gathered from the minitwit application by pulling with Prometheus. Logs are aquired by using the Loki logging driver on our minitwit containers, which push to an aggregator container on the monitoring machine. Grafana can then pull data from Prometheus and Loki to display in the dashboard. The dashboard shows:
+Our monitoring dashboard tracks the following:
 
 - If the server is running or is down
 - The 99'th and 99.9'th percentile of response time to see if we have requests that are taking longer than they should
