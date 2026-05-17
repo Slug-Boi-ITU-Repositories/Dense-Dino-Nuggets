@@ -188,7 +188,7 @@ As the course progressed challenges of our project slowly became less about impl
 We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
 When looking at our backlog we see that we have many stale issues and a few duplicates. As the backlog grew the kanban board became less reliable as a planning tool and showed that we would need a better planning structure if we were to continue on with the project.
-Ultimately we identified a lot of these small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
+Ultimately we identified a lot of small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
 
 A significant change with this project is the fact that we were responsible for operations after deployment. The project required a shift to a continuous delivery mindset where we had to focus more on quality and maintainability than previously. Our extended feedback loop ensured that we were constantly aware of these qualities through pull requests and monitoring, rather than focusing solely on feature delivery.
 
