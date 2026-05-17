@@ -106,7 +106,7 @@ We refactored the existing test suite from the original version of Minitwit and 
 
 #### IaC vs Current State
 
-The Monitoring droplet currently does not mount the services that are running on it as docker volumes this would need to be added to the docker-compose file for the data to be accessible for the different containers. In the past we had set this up mounting a file path (when we were still using vagrant), this was not mirrored in the migration to OpenTofu. Other than this small discrepancy the IaC should match the current system.
+The monitoring droplet currently does not mount the services that are running on it as docker volumes. This would need to be added to the docker-compose file for the data to be accessible for the different containers. Previously we had set this up by mounting a file path (when we were still using vagrant), this was not mirrored in the migration to OpenTofu. Other than this small discrepancy the IaC should match the current system.
 
 ## 2. Process' perspective
  <!---
