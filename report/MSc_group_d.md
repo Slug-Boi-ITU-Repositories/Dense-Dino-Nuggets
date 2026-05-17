@@ -113,7 +113,7 @@ Our PR pipeline is triggered on pull requests and pushes to main to ensure the q
 
 #### Release Pipeline
 
-Below is a flowchart showing the Release CI pipeline. It is triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact, publish a Docker image, and provision the new image to our DO droplet.
+Below is a flowchart showing the Release CI pipeline. It's triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact, publish a Docker image, and provision the new image to our DO droplet.
 
 ![release_CI_pipeline.png](images/test_CI_pipeline_release.png)
 
@@ -168,7 +168,7 @@ The reason we have not implemented these solutions is a combination of lack of t
 
 As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the system.
 
-We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
+We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It's evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
 When looking at our backlog we see that we have many stale issues and a few duplicates. As the backlog grew the Github project board became less reliable as a planning tool and showed that we would need a better planning structure if we were to continue on with the project.
 Ultimately we identified a lot of small non-technical issues early on but didn't do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
