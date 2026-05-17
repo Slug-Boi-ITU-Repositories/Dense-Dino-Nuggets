@@ -71,7 +71,7 @@ Our Minitwit uses the following dependencies:
 
 #### Security
 
-We did a security assessment of the system and concluded the following:
+ A security assessment of the system revealed the following:
 
 - The most critical risks involve the backend API and sensitive credentials
 - Infrastructure misconfiguration presents significant risk
