@@ -140,7 +140,7 @@ After we started using swarm to have multiple replicas our Prometheus setup stop
 
 ### 2.3 Logging
 
-For logging we had a logging middleware that we used for web requests, which logged what type of request is was, what endpoint it was too, and how long the request took to execute. We also used logging in parts of the code where an error could occur to give information about what went wrong. Gorm also has it's own logging which show information about the query that was executed, when there are issues or warnings. Like the Query taking too long or not returning any rows. One big issue with our logging is that we used simple `log.Printf` lines for all our logging. This means we didn't have the ability have different levels of logging or filtering the logs based on the type. In practice this didn't lead to any issues since we didn't run into any time where the server ran into errors after having started successfully. Any time we ran into errors they where while the servers was starting and the logs, therefore were easy to look through.
+We have logging middleware that we use for web requests, which logs type of request, endpoint, and execution time of requests. We also use logging in error-prone parts of the code for diagnostics. Gorm also has its own logging, which shows information about queries with issues or warnings. An issue with our logging is that we use simple `log.Printf` lines for all our logging. This means that we don't have the ability have different levels of logging or filtering of the logs based on type. In practice this didn't lead to any issues, since we didn't run into any issues after having started Minitwit successfully. 
 
 ### 2.4 Hardening of Minitwit
 
