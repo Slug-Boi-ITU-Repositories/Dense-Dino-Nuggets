@@ -1,5 +1,17 @@
 # Diary of Dense Dino Nuggets
 
+## 08/05
+
+We worked on replacing the vagrant provisioning with Opentofu (a fork of Terraform). We created an Ansible configuration to ensure idempotency and to have a less convoluted format for this essential step in our pipeline.
+
+## 21/04
+
+The big swarm manager convergance migration. There is a seperate markdown file named `SwarmMigration.md` that outlines exactly how this came to be and what our measured downtime was.
+
+## 19/03
+
+This was the big DB migration night, we ended up writing a long document outlining what happened during this move and how it was all orchistrated. This file can be found in this folder under the name of `TheBigDBMigration.md`.
+
 ## 13/03
 
 We have set up spellcheck. We have chosen to use misspell. It seems simple and is made specifically for Go. We were also considering CSpell but it seems like it would add unnecessary complexity and overlaps with the features of sonarqube.
@@ -45,11 +57,3 @@ regarding the refactoring of minitwit.
 ## 06/02
 
 We have started Refactoring minitwit from Python to Golang.
-
-## 19/03
-
-This was the big DB migration night, we ended up writing a long document outlining what happened during this move and how it was all orchistrated. This file can be found in this folder under the name of `TheBigDBMigration.md`.
-
-## 21/04
-The big swarm manager convergance migration. There is a seperate markdown file named `SwarmMigration.md` that outlines exactly how this came to be and what our measured downtime was.
-
