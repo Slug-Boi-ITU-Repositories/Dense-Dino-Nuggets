@@ -204,6 +204,45 @@
       failed_when: false
       changed_when: false
 
+    # Installs for TLS
+    - name: install Nginx + firewall + certbot
+      apt:
+        name:
+          - nginx
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+        state: present
+        update_cache: yes
+
+    # Start Nginx
+    - name: Ensure nginx is running
+      ansible.builtin.systemd:
+        name: nginx
+        state: started
+        enabled: true
+
+    # Firewall (UFW)
+    - name: Allow SSH
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow HTTPS via nginx
+      community.general.ufw:
+        rule: allow
+        name: "Nginx Full"
+      
+    - name: Allow docker swarm ports
+      ansible.builtin.shell: |
+        ufw allow 2377/tcp
+        ufw allow 7946
+        ufw allow 4789/udp
+      
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
     - name: Enable Loki plugin when present
       ansible.builtin.command:
         argv:
@@ -477,38 +516,7 @@
               device: "{{ volume_mount }}"
               o: bind
 
-    # Installs for TLS
-    - name: install Nginx + firewall + certbot
-      apt:
-        name:
-          - nginx
-          - ufw
-          - certbot
-          - python3-certbot-nginx
-        state: present
-        update_cache: yes
-
-    # Start Nginx
-    - name: Ensure nginx is running
-      ansible.builtin.systemd:
-        name: nginx
-        state: started
-        enabled: true
-
-    # Firewall (UFW)
-    - name: Allow SSH
-      community.general.ufw:
-        rule: allow
-        name: OpenSSH
-
-    - name: Allow HTTPS via nginx
-      community.general.ufw:
-        rule: allow
-        name: "Nginx Full"
-
-    - name: Enable UFW
-      community.general.ufw:
-        state: enabled
+    
 
     # Nginx configuration
     - name: Deploy nginx site config
