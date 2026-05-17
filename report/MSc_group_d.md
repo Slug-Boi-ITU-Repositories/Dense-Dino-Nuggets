@@ -91,7 +91,7 @@ We added Dependabot late into the project and still have open security issues, w
 
 #### Code Quality
 
-The project used a few static analysis tools for checking code periodically and on Pull Requests. Codacy was one of these tools and is currently passing on Main. When Codacy found issues on PR's they were fixed before merging into Main. Another static analysis tool we used was Sonarqube Cloud, this one is currently not passing on Main. Sonarqube was extremely badly configured for our project and was therefore very useless for most PR's. Most of the security problems it outlined were due to us not using TLs at the time and most of the code duplication it pointed out was false flags (playwright tests had 80+% code duplication). This tool could have been very useful it we had taken more time to configure it properly but as it stands the tool was mostly a hindrance.
+To ensure code quality, we use the static code analysis tools Codacy, SonarQube Cloud, and CodeQL on pull requests. This mitigates misspelled words, code duplication, security issues, etc.  SonarQube is currently not passing on our main branch. It was poorly configured for our project and did not add a lot of value to our process. All other checks pass.
 
 #### Testing
 
