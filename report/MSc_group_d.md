@@ -82,7 +82,7 @@ Additionally for security we used Docker Scout to find vulnerabilities in our Do
 
 ![Dockerscout vulnerabilities before](images/dockerscout_CVE_before.png)
 
-After fixing these we are down to  vulnerabilities
+After fixing these we are down to one vulnerability 
 
 ![Dockerscout vulnerabilities before](images/dockerscout_CVE_after.png)
 
