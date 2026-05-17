@@ -175,7 +175,7 @@ A significant change with this project is the fact that we were responsible for 
  The whole process came with a higher need for coordination than previous projects due to shifting demands and complexity.
 
 ## 4. Use of Generative AI
-Our project includes AI-assisted code. We have used the following generative models while working on our Minitwit:
+We made use of the following generative models for our work on Minitwit:
 
 - ChatGPT
 - DeepSeek
