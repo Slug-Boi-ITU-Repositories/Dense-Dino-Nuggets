@@ -78,7 +78,7 @@ We did a security assessment of the system and concluded the following:
 
 The background for these findings was outlined in security assessment, which can be found through the link in the appendix.
 
-Additionally for security we used dockerscout to find vulnerabilities in our dockerimage. The initial run resulted in 40 total vulnerabilities 4 of them being high severity.
+Additionally for security we used Docker Scout to find vulnerabilities in our Docker image. The initial run resulted in a total of 40 vulnerabilities with 4 of them being of high severity.
 
 ![Dockerscout vulnerabilities before](images/dockerscout_CVE_before.png)
 
