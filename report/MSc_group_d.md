@@ -40,7 +40,8 @@ Our Minitwit uses the following dependencies:
 | DigitalOcean | A cloud infrastructure provider. |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
 | Certbot | A tool for automatically obtaining and renewing TLS certificates. |
-| No-IP | A Dynamic DNS provider that keeps the domain name in sync with the droplet's IP address using a DUC running on the server. |
+| No-IP | Dynamic DNS provider. |
+| DUC | Dynamic IP updater for No-IP. |
 | Ansible | Automation tool for provisioning and configuring infrastructure through declarative playbooks. |
 | Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments using virtual machines. |
 
