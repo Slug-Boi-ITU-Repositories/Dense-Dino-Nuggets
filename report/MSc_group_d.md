@@ -154,6 +154,8 @@ One large issue we ran into was that our Prometheus setup was not collecting acc
 
 ### 2.3 Logging
 
+For logging we had a logging middleware that we used for web requests, which logged what type of request is was, what endpoint it was too, and how long the request took to execute. We also used logging in parts of the code where an error could occur to give information about what went wrong. Gorm also has it's own logging which show information about the query that was executed, when there are issues or warnings. Like the Query taking too long or not returning any rows. One big issue with our logging is that we used simple `log.Printf` lines for all our logging. This means we didn't have the ability have different levels of logging or filtering the logs based on the type. In practice this didn't lead to any issues since we didn't run into any time where the server ran into errors after having started successfully. Any time we ran into errors they where while the servers was starting and the logs, therefore were easy to look through.
+
 ### 2.4 Hardening of Minitwit
 
 After performing a security assessment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
