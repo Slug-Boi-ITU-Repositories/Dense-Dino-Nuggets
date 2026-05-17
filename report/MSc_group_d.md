@@ -238,3 +238,20 @@ I belive we accidently set up CodePilot reviews for some pull requests
 
 As a group, we did not establish a formal policy or set of guidelines for the use of generative AI during the project, and usage was therefore informal and unregulated. Generative AI was used by multiple team members for tasks such as code generation, debugging, refactoring, and explanation of technical concepts. Since usage was not systematically documented at commit or task level, it is not possible to precisely attribute which parts of the codebase were AI-assisted. However, all contributions, including AI-assisted code, were reviewed and integrated by the team as part of the normal development workflow.
 -->
+
+# Appendix
+
+Additional documentation of mentioned assessments and processes we went through in the project such as:
+- Authentication.md
+	
+- MakeWorkVisible.md
+
+- ReflectionsOnThreeWays.md
+
+- Security_Assesment.md
+
+- SwarmMigration.md
+
+- TheBigDBMigration.md
+
+Can be found at: https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs
