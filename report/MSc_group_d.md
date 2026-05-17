@@ -132,7 +132,7 @@ Our monitoring dashboard tracks the following:
 
 #### Alerting
 
-We set up an alert that used Grafana's built-in Discord web hook, such that a Discord bot would send a message in our Discord server in case the minitwit system went down or was unreachable by Prometheus.
+We set up an alert that used Grafana's built-in Discord web hook, such we where notified in case the system went was unreachable by Prometheus.
 
 #### Monitoring issues
 
