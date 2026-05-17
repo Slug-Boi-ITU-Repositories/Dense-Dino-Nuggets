@@ -42,6 +42,8 @@ Our Minitwit uses the following dependencies:
 | Golang | Open-source programming language by Google. |
 | PostgreSQL | Open-source relational database. |
 | GORM | ORM library for Go. Adds an abstraction layer between our application and the database |
+| gorilla/mux | HTTP router and dispatcher |
+| godotenv | Small module for loading environment variable from a .env file |
 | Nginx | Acts as a reverse proxy |
 | Docker | Enables containerization of system components and orchestration of nodes using Docker swarm |
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
@@ -70,6 +72,7 @@ Our Minitwit uses the following dependencies:
 | Grafana | A platform for real-time visualization and monitoring of system performance through dashboards. |
 | Loki | A log aggregation system & a docker logging driver replacement. It only indexes metadata and integrates easily with Grafana. |
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
+| Prometheus Client Library | Library for collecting and exposing monitoring data |
 
 ### 1.4 Current State of our Minitwit
 
