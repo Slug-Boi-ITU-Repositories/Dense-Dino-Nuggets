@@ -86,7 +86,7 @@ After fixing these we are down to one vulnerability
 
 ![Dockerscout vulnerabilities before](images/dockerscout_CVE_after.png)
 
-Lastly we added dependabot very late to the project and as such still have open security issues based on this which can be seen on the Github repository.
+We added Dependabot late into the project and still have open security issues, which can be seen on the Github repository.
 
 #### Code Quality
 
