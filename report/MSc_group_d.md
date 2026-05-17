@@ -185,7 +185,7 @@ Also reflect and describe what was the "DevOps" style of your work. For example,
 
 As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the system.
 
-We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week and how it works. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
+We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
 When looking at our backlog we see that we have many stale issues and a few duplicates. As the backlog grew the kanban board became less reliable as a planning tool and showed that we would need a better planning structure if we were to continue on with the project.
 Ultimately we identified a lot of these small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
