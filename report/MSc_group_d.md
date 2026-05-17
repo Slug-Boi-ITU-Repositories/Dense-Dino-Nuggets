@@ -76,13 +76,37 @@ Our Minitwit uses the following dependencies:
 
 ### 1.4 Current State of our Minitwit
 
-- Linter outputs (CodeQL is happy)
-- Scanning tools from github
-- Sonarcloud:
-  - We spent significant time working around SonarCloud's code duplication requirements, because it would mark our golang err checks as duplicate code, often preventing us from merging PRs. We also had some issues with SonarCloud's security rating before adding TLS as it would mark every cookie sent as a vulnerability (because the secure flag was set to false).
-- dependabot: Has 6 security alerts.
-- dockerscout: Currently has found 1 moderate vulnerability on our image again caused by the currently chosen linux distribution
-- Test suite: Passes all tests
+#### Security
+
+The group did a security assessment of the system and concluded the following.
+
+- The most critical risks involve the backend API and sensitive credentials
+- Infrastructure misconfiguration presents significant risk
+- Proper security controls significantly reduce overall risk exposure
+
+The background for these findings was outlined in security assessment which can be found through the link in the appendix.
+
+Additionally for security we used dockerscout to find vulnerabilities in our dockerimage. The initial run resulted in 40 total vulnerabilities 4 of them being high severity.
+
+![Dockerscout vulnerabilities before](images/dockerscout_CVE_before.png)
+
+After fixing these we are down to  vulnerabilities
+
+![Dockerscout vulnerabilities before](images/dockerscout_CVE_after.png)
+
+Lastly we added dependabot very late to the project and as such still have open security issues based on this which can be seen on the Github repository.
+
+#### Code Quality
+
+The project used a few static analysis tools for checking code periodically and on Pull Requests. Codacy was one of these tools and is currently passing on Main. When Codacy found issues on PR's they were fixed before merging into Main. Another static analysis tool we used was Sonarqube Cloud, this one is currently not passing on Main. Sonarqube was extremely badly configured for our project and was therefore very useless for most PR's. Most of the security problems it outlined were due to us not using TLs at the time and most of the code duplication it pointed out was false flags (playwright tests had 80+% code duplication). This tool could have been very useful it we had taken more time to configure it properly but as it stands the tool was mostly a hindrance.
+
+#### Testing
+
+We translated the existing test suite from the Python version of the program and added end-to-end tests to test the UI parts of the webapp. We did not have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
+
+#### IaC vs Current State
+
+The Monitoring droplet currently does not mount the services that are running on it as docker volumes this would need to be added to the docker-compose file for the data to be accessible for the different containers. In the past we had set this up mounting a file path (when we were still using vagrant), this was not mirrored in the migration to OpenTofu. Other than this small discrepancy the IaC should match the current system.
 
 ## 2. Process' perspective
  <!---
