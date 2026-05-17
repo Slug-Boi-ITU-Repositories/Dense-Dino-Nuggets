@@ -27,7 +27,7 @@ The whole system can be booted up by creating the droplets and volume with OpenT
 Our Minitwit uses the following dependencies:
 
 #### Core dependencies
-
+  
 | Dependency | Description |
 | ---------- | ----------- |
 | Golang | Programming language. |
@@ -47,7 +47,7 @@ Our Minitwit uses the following dependencies:
 | Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments using virtual machines. |
 
 #### Testing and Quality tooling
-
+  
 | Dependency | Description |
 | ---------- | ----------- |
 | Dagger | Workflow orchestration. |
@@ -59,7 +59,7 @@ Our Minitwit uses the following dependencies:
 | Codacy | Aggregates results of static code analysis and presents in PR's. |
 
 #### Monitoring and Logging
-
+  
 | Dependency | Description |
 | ---------- | ----------- |
 | Grafana | Metric and log visualization. |
@@ -70,7 +70,7 @@ Our Minitwit uses the following dependencies:
 ### 1.4 Current State of our Minitwit
 
 #### Security
-
+  
  A security assessment of the system revealed the following:
 
 - The most critical risks involve the backend API and sensitive credentials
@@ -90,13 +90,13 @@ After fixing these we are down to one vulnerability.
 We added Dependabot late into the project and still have open security issues, which can be seen on the Github repository.
 
 #### Code Quality
-
+  
 To ensure code quality, we use the static code analysis tools Codacy, SonarQube Cloud, and CodeQL on pull requests. This mitigates misspelled words, code duplication, security issues, etc.  SonarQube is currently not passing on our main branch. It was poorly configured for our project and didn't add a lot of value to our process. All other checks pass.
 
 ![SonarQube Output](images/SonarQube.png)
 
 #### Testing
-
+  
 We refactored the existing test suite from the original version of Minitwit and added end-to-end tests to test the UI parts of the web app. We didn't have tests for the API endpoints. As an attempt to mitigate this we have ran the simulator periodically. This should have been a part of the test suite in some way. Currently all tests pass.
 
 #### IaC vs Current State
@@ -108,23 +108,23 @@ The monitoring droplet doesn't currently mount the services that are running on 
 ### 2.1 CI/CD Pipelines
 
 #### Validation pipeline on pull requests
-
+  
 Our validation pipeline is triggered on pull requests and pushes to main to ensure the quality of the code merged into main. When a developer creates a pull request a series of automated quality and security checks are initiated. We also run our test workflow, as seen in the diagram below, which runs our Go tests, linting, and spellchecker Misspell, all orchestrated through Dagger. SonarQube and Codacy both post a report on the pull request. We do manual peer reviews where the other developers can suggest changes. We require that all the checks pass and at least two members of our team review and approve the changes in the pull request.
 
-![test_CI_pipeline.png](images/test_CI_pipeline_test.png)
+![test CI pipeline](images/test_CI_pipeline_test.png)
 
 #### Release Pipeline
-
+  
 Below is a flowchart showing the Release CI pipeline. It's triggered when a version tag is pushed. Dagger orchestrates and runs our Go tests, linting, spellcheck, and Playwright-based end-to-end tests. If all tests succeed we build a packaged release artifact, publish a Docker image, and provision the new image to our DO droplet.
 
-![release_CI_pipeline.png](images/test_CI_pipeline_release.png)
+![release CI pipeline](images/test_CI_pipeline_release.png)
 
 ### 2.2 Monitoring of Minitwit
 
 #### Dashboard structure
-
+  
 This is how our monitoring dashboard looks
-![minitwit_dashboard.png](./images/minitwit_dashboard.png)
+![Minitwit Dashboard ](./images/minitwit_dashboard.png)
 
 Our monitoring dashboard tracks the following:
 
@@ -135,11 +135,11 @@ Our monitoring dashboard tracks the following:
 - The logs from Minitwit to see what is happening on the system.
 
 #### Alerting
-
+  
 We set up an alert that used Grafana's built-in Discord web hook, so we are notified in case the system becomes unreachable by Prometheus.
 
 #### Monitoring issues
-
+  
 After we started using swarm for multiple replicas our Prometheus setup stopped collecting accurate information from the Minitwit application. This was an unfortunate side effect of Prometheus being a pull system. When Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we need to move over to a push system, where each of the replicas would need to push their monitoring data to Prometheus so it can be aggregated and shown in Grafana. We did, however, not have time to implement this.
 
 ### 2.3 Logging
