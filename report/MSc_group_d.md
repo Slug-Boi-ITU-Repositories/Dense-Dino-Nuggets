@@ -23,7 +23,7 @@ A description and illustration of the:
 
 ![Allocation diagram of the Minitwit system](images/allocation-diagram.png)
 
-The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 2 droplets running on digital ocean. One droplet runs the containerized version of the minitwit application. The minitwit application is run as 3 replicas using docker swarm, all running on the same droplet. The replicas don't need to be on this one droplet. If another droplet is part of the swarm, then a minitwit replica can be started on that droplet. The reason we are running all the replicas on one droplet is that we where limited to 3 droplets by GitHub Education, the second droplet was running our monitoring setup, which was using most of the available RAM on that droplet, and we were using the the 3rd droplet to have a testing droplet. The swarm manager droplet also contains the minitwit database. The datafiles for the database are stored on an attached DigitalOcean volume that allows the files to persists if the droplet dies. The application containers running on the droplet uses a Loki logging driver which acts as a middleware by sending logs to the Loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the Prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. The Nginx reverse proxy uses the certificate to enable HTTPS for the site and redirects HTTP requests to HTTPS.  No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet. 
+The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 2 droplets running on digital ocean. One droplet runs the containerized version of the minitwit application. The minitwit application is run as 3 replicas using docker swarm, all running on the same droplet. The replicas don't need to be on this one droplet. If another droplet is part of the swarm, then a minitwit replica can be started on that droplet. The reason we are running all the replicas on one droplet is that we where limited to 3 droplets by GitHub Education, the second droplet was running our monitoring setup, which was using most of the available RAM on that droplet, and we were using the the 3rd droplet to have a testing droplet. The swarm manager droplet also contains the minitwit database. The datafiles for the database are stored on an attached DigitalOcean volume that allows the files to persists if the droplet dies. The application containers running on the droplet uses a Loki logging driver which acts as a middleware by sending logs to the Loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the Prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. The Nginx reverse proxy uses the certificate to enable HTTPS for the site and redirects HTTP requests to HTTPS.  No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet.
 
 Another droplet runs the monitoring and logging containers. Loki aggregates logs from the application droplet. Prometheus pulls metrics from the application. Grafana pulls the logs from Loki and the metrics from Prometheus, and displays them in a dashboard.
 
@@ -42,6 +42,8 @@ Our Minitwit uses the following dependencies:
 | Golang | Open-source programming language by Google. |
 | PostgreSQL | Open-source relational database. |
 | GORM | ORM library for Go. Adds an abstraction layer between our application and the database |
+| gorilla/mux | HTTP router and dispatcher |
+| godotenv | Small module for loading environment variable from a .env file |
 | Nginx | Acts as a reverse proxy |
 | Docker | Enables containerization of system components and orchestration of nodes using Docker swarm |
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
@@ -70,6 +72,7 @@ Our Minitwit uses the following dependencies:
 | Grafana | A platform for real-time visualization and monitoring of system performance through dashboards. |
 | Loki | A log aggregation system & a docker logging driver replacement. It only indexes metadata and integrates easily with Grafana. |
 | Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
+| Prometheus Client Library | Library for collecting and exposing monitoring data |
 
 ### 1.4 Current State of our Minitwit
 
@@ -175,6 +178,8 @@ One large issue we ran into was that our Prometheus setup was not collecting acc
 
 ### 2.3 Logging
 
+For logging we had a logging middleware that we used for web requests, which logged what type of request is was, what endpoint it was too, and how long the request took to execute. We also used logging in parts of the code where an error could occur to give information about what went wrong. Gorm also has it's own logging which show information about the query that was executed, when there are issues or warnings. Like the Query taking too long or not returning any rows. One big issue with our logging is that we used simple `log.Printf` lines for all our logging. This means we didn't have the ability have different levels of logging or filtering the logs based on the type. In practice this didn't lead to any issues since we didn't run into any time where the server ran into errors after having started successfully. Any time we ran into errors they where while the servers was starting and the logs, therefore were easy to look through.
+
 ### 2.4 Hardening of Minitwit
 
 After performing a security assessment, we began hardening our Minitwit. First we set up TLS. We started by acquiring a domain through no-IP. Then Nginx was installed and configured as a reverse proxy in front of our Minitwit application. The setup included enabling and configuring a firewall. This was followed by setting up Certbot for handling certificates so we could obtain a TLS certificate for HTTPS.
@@ -207,14 +212,14 @@ of your ITU-MiniTwit systems. Link back to respective commit messages, issues, t
 Also reflect and describe what was the "DevOps" style of your work. For example, what did you do differently to previous development projects and how did it work?
 -->
 
-As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the project.
+As the course progressed challenges of our project slowly became less about implementing new features and more about handling the growing complexity of the system.
 
-We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week and how it works. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
+We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
 When looking at our backlog we see that we have many stale issues and a few duplicates. As the backlog grew the kanban board became less reliable as a planning tool and showed that we would need a better planning structure if we were to continue on with the project.
-Ultimately we identified a lot of these small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
+Ultimately we identified a lot of small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
 
-A significant change with this project is the fact that we were responsible for operations after deployment. The project required a shift to a continuous delivery mindset where we had to focus more on quality and maintainability than previously. Our extended feedback loop ensured that we were constantly aware of these qualities through pull requests and monitoring, rather than focusing solely on feature delivery.
+A significant change with this project is the fact that we were responsible for operations after deployment. The project required a shift to a continuous delivery mindset where we had to focus more on quality and maintainability. Our extended feedback loop ensured that we were constantly aware of these qualities through pull requests and monitoring, rather than focusing solely on feature delivery.
 
  The whole process came with a higher need for coordination than previous projects due to shifting demands and complexity.
 
@@ -246,9 +251,9 @@ Our project includes AI-assisted code. We have used the following generative mod
 - DeepSeek
 - Claude
 
-Throughout the course we have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them. When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue. We have also used generative AI for code generation and to aid us in refactoring parts of the project. We have not tracked our AI usage systematically, so we are not able to identify all specific instances where generated code has been included.
+Throughout the course we have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them. When we refactored the tests from the original Minitwit, ChatGPT was used to help debug and identify why one of the tests was failing, so we could fix the issue. We have also used generative AI for code generation and to aid us in refactoring parts of the project. While we have made some effort to co-author the AI models when it was used, we have not tracked our AI usage systematically, so we are not able to identify all specific instances where generated code has been included.
 
-While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of the way Ansible works. Due to this we had to spend a substantial amount of time on fixing the generated code.
+While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of shell script code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of many Ansible specific features. Due to this we had to spend a substantial amount of time on fixing and extending the generated code.
 Introducing AI generated code into our codebase also meant that we had code that we did not necessarily understand, which is bad for maintainability. In general we should have been more critical of our use of generative AI as it takes away from our learning when it does our work for us.
 
 <!---
@@ -257,3 +262,21 @@ I belive we accidently set up CodePilot reviews for some pull requests
 
 As a group, we did not establish a formal policy or set of guidelines for the use of generative AI during the project, and usage was therefore informal and unregulated. Generative AI was used by multiple team members for tasks such as code generation, debugging, refactoring, and explanation of technical concepts. Since usage was not systematically documented at commit or task level, it is not possible to precisely attribute which parts of the codebase were AI-assisted. However, all contributions, including AI-assisted code, were reviewed and integrated by the team as part of the normal development workflow.
 -->
+
+## Appendix
+
+Additional documentation of mentioned assessments and processes we went through in the project such as:
+
+- Authentication.md
+
+- MakeWorkVisible.md
+
+- ReflectionsOnThreeWays.md
+
+- Security_Assesment.md
+
+- SwarmMigration.md
+
+- TheBigDBMigration.md
+
+Can be found at: <https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs>
