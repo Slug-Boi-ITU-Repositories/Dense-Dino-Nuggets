@@ -77,7 +77,7 @@ Our Minitwit uses the following dependencies:
 - Infrastructure misconfiguration presents significant risk
 - Proper security controls significantly reduce overall risk exposure
 
-The background for these findings was outlined in security assessment, which can be found through the link in the appendix.
+The background for these findings was outlined in the security assessment (link in appendix).
 
 Additionally for security we used Docker Scout to find vulnerabilities in our Docker image. The initial run resulted in a total of 40 vulnerabilities with 4 of them being of high severity.
 
