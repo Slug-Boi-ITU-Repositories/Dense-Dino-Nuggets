@@ -243,16 +243,16 @@ As a group, we did not establish a formal policy or set of guidelines for the us
 
 Additional documentation of mentioned assessments and processes we went through in the project such as:
 
-- Authentication.md
+- [Authentication.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/Authentication.md)
 
-- MakeWorkVisible.md
+- [MakeWorkVisible.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/MakeWorkVisible.md)
 
-- ReflectionsOnThreeWays.md
+- [ReflectionsOnThreeWays.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/ReflectionsOnThreeWays.md)
 
-- Security_Assesment.md
+- [Security_Assesment.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/Security_Assesment.md)
 
-- SwarmMigration.md
+- [SwarmMigration.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/SwarmMigration.md)
 
-- TheBigDBMigration.md
+- [TheBigDBMigration.md](https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/blob/main/docs/TheBigDBMigration.md)
 
-Can be found at: <https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs>
+These files as well as the rest of our project can be found at: <https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs>
