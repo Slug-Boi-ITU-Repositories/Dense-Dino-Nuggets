@@ -23,7 +23,7 @@ A description and illustration of the:
 
 ![Allocation diagram of the Minitwit system](images/allocation-diagram.png)
 
-The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 2 droplets running on digital ocean. One droplet runs the containerized version of the minitwit application. The minitwit application is run as 3 replicas using docker swarm, all running on the same droplet. The replicas don't need to be on this one droplet. If another droplet is part of the swarm, then a minitwit replica can be started on that droplet. The reason we are running all the replicas on one droplet is that we where limited to 3 droplets by GitHub Education, the second droplet was running our monitoring setup, which was using most of the available RAM on that droplet, and we were using the the 3rd droplet to have a testing droplet. The swarm manager droplet also contains the minitwit database. The datafiles for the database are stored on an attached DigitalOcean volume that allows the files to persists if the droplet dies. The application containers running on the droplet uses a Loki logging driver which acts as a middleware by sending logs to the Loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the Prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. The Nginx reverse proxy uses the certificate to enable HTTPS for the site and redirects HTTP requests to HTTPS.  No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet. 
+The allocation diagram shows how software elements are mapped to platform elements in the environment of the system. There are 2 droplets running on digital ocean. One droplet runs the containerized version of the minitwit application. The minitwit application is run as 3 replicas using docker swarm, all running on the same droplet. The replicas don't need to be on this one droplet. If another droplet is part of the swarm, then a minitwit replica can be started on that droplet. The reason we are running all the replicas on one droplet is that we where limited to 3 droplets by GitHub Education, the second droplet was running our monitoring setup, which was using most of the available RAM on that droplet, and we were using the the 3rd droplet to have a testing droplet. The swarm manager droplet also contains the minitwit database. The datafiles for the database are stored on an attached DigitalOcean volume that allows the files to persists if the droplet dies. The application containers running on the droplet uses a Loki logging driver which acts as a middleware by sending logs to the Loki aggregator running on the monitoring/logging droplet, before writing the logs to standard output. Metrics from the app are pulled by the Prometheus container also running on the monitoring/logging droplet. Certbot is set up to get a TLS certificate from let's encrypt to enable HTTPS. The Nginx reverse proxy uses the certificate to enable HTTPS for the site and redirects HTTP requests to HTTPS.  No-IP Dynamic Update Client(DUC) is run on a docker container to keep the domain name synchronized with the droplet IP. UFW is used to configure the firewall for the droplet.
 
 Another droplet runs the monitoring and logging containers. Loki aggregates logs from the application droplet. Prometheus pulls metrics from the application. Grafana pulls the logs from Loki and the metrics from Prometheus, and displays them in a dashboard.
 
@@ -239,11 +239,12 @@ I belive we accidently set up CodePilot reviews for some pull requests
 As a group, we did not establish a formal policy or set of guidelines for the use of generative AI during the project, and usage was therefore informal and unregulated. Generative AI was used by multiple team members for tasks such as code generation, debugging, refactoring, and explanation of technical concepts. Since usage was not systematically documented at commit or task level, it is not possible to precisely attribute which parts of the codebase were AI-assisted. However, all contributions, including AI-assisted code, were reviewed and integrated by the team as part of the normal development workflow.
 -->
 
-# Appendix
+## Appendix
 
 Additional documentation of mentioned assessments and processes we went through in the project such as:
+
 - Authentication.md
-	
+
 - MakeWorkVisible.md
 
 - ReflectionsOnThreeWays.md
@@ -254,4 +255,4 @@ Additional documentation of mentioned assessments and processes we went through 
 
 - TheBigDBMigration.md
 
-Can be found at: https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs
+Can be found at: <https://github.com/Slug-Boi-ITU-Repositories/Dense-Dino-Nuggets/tree/main/docs>
