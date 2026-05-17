@@ -45,6 +45,7 @@ Our Minitwit uses the following dependencies:
 | gorilla/mux | HTTP router and dispatcher |
 | godotenv | Small module for loading environment variable from a .env file |
 | Nginx | Acts as a reverse proxy |
+| ufw | Firewall management |
 | Docker | Enables containerization of system components and orchestration of nodes using Docker swarm |
 | DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
