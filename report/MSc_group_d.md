@@ -102,7 +102,7 @@ The project used a few static analysis tools for checking code periodically and 
 
 #### Testing
 
-We translated the existing test suite from the Python version of the program and added end-to-end tests to test the UI parts of the webapp. We did not have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
+We refactored the existing test suite from the original version of Minitwit and added end-to-end tests to test the UI parts of the web app. We did not have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
 
 #### IaC vs Current State
 
