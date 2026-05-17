@@ -39,40 +39,40 @@ Our Minitwit uses the following dependencies:
 
 | Dependency | Description |
 | ---------- | ----------- |
-| Golang | Open-source programming language by Google. |
-| PostgreSQL | Open-source relational database. |
-| GORM | ORM library for Go. Adds an abstraction layer between our application and the database |
-| gorilla/mux | HTTP router and dispatcher |
-| godotenv | Small module for loading environment variable from a .env file |
-| Nginx | Acts as a reverse proxy |
-| ufw | Firewall management |
-| Docker | Enables containerization of system components and orchestration of nodes using Docker swarm |
-| DigitalOcean | A cloud infrastructure provider that offers hosting of websites on droplets (VMs) |
+| Golang | Programming language. |
+| PostgreSQL | Relational database. |
+| GORM | ORM library for Go. |
+| gorilla/mux | HTTP router and dispatcher. |
+| godotenv | Module for loading .env files. |
+| Nginx | Acts as a reverse proxy. |
+| ufw | Firewall management. |
+| Docker | Enables containerization of system components and orchestration of nodes using Docker swarm. |
+| DigitalOcean | A cloud infrastructure provider. |
 | OpenTofu | An infrastructure-as-code tool serving as an alternative to Terraform. |
-| Certbot | An open-source tool for automatically obtaining and renewing TLS certificates to enable HTTPS |
-| No-IP | A Dynamic DNS provider that keeps the domain name in sync with the droplet's IP address using a DUC running on the server |
-| Ansible | Open-source automation tool for provisioning and configuring infrastructure through declarative playbooks. Replaces Vagrant. |
-| Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments. It manages virtual machines defined in vagrantfiles. |
+| Certbot | A tool for automatically obtaining and renewing TLS certificates. |
+| No-IP | A Dynamic DNS provider that keeps the domain name in sync with the droplet's IP address using a DUC running on the server. |
+| Ansible | Automation tool for provisioning and configuring infrastructure through declarative playbooks. |
+| Vagrant | **No longer a dependency.**  A tool for building and provisioning development environments using virtual machines. |
 
 #### Testing and Quality tooling
 
 | Dependency | Description |
 | ---------- | ----------- |
-| Dagger | A platform for orchestrating tests. Used for running our tests, linter, and spellcheck through Github workflows. |
-| Playwright | A web-facing end-to-end testing library |
-| misspell | Checks for misspelled words. Part of our Dagger workflow for pull requests. |
-| golangci-lint | A universal linter. Part of our Dagger workflow for pull requests. |
-| CodeQL | A tool for static code analysis, focused on security and vulnerability detection. |
-| SonarQube | A tool for static code analysis, focused on code quality and maintainability. |
-| Codacy | A code quality platform that aggregates the results of the static code analysis and presents them in pull requests to support code reviews |
+| Dagger | Workflow orchestration. |
+| Playwright | A web-facing end-to-end testing library. |
+| misspell | Spellchecker. |
+| golangci-lint | A universal linter. |
+| CodeQL | Static code analysis, focused on security and vulnerability detection. |
+| SonarQube | Static code analysis, focused on code quality and maintainability. |
+| Codacy | Aggregates results of static code analysis and presents in PR's. |
 
 #### Monitoring and Logging
 
 | Dependency | Description |
 | ---------- | ----------- |
-| Grafana | A platform for real-time visualization and monitoring of system performance through dashboards. |
-| Loki | A log aggregation system & a docker logging driver replacement. It only indexes metadata and integrates easily with Grafana. |
-| Prometheus | Monitoring system that collects and stores time series data for monitoring and alerting through Grafana. |
+| Grafana | Metric and log visualization. |
+| Loki | Log aggregation system and logging driver. |
+| Prometheus | Timeseries database for metrics |
 | Prometheus Client Library | Library for collecting and exposing monitoring data |
 
 ### 1.4 Current State of our Minitwit
