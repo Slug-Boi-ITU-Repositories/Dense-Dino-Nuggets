@@ -94,7 +94,7 @@ The project used a few static analysis tools for checking code periodically and 
 
 #### Testing
 
-We refactored the existing test suite from the original version of Minitwit and added end-to-end tests to test the UI parts of the web app. We did not have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
+We refactored the existing test suite from the original version of Minitwit and added end-to-end tests to test the UI parts of the web app. We didn't have tests for the API endpoints, as an attempt to mitigate this we have ran the simulator periodically but this should have been a part of the test suite in some way.
 
 #### IaC vs Current State
 
@@ -168,7 +168,7 @@ As the course progressed challenges of our project slowly became less about impl
 We started suffering from knowledge silos early, which we mitigated by introducing meetings each Friday, where we talked about what we had worked on throughout the week. It is evident that documentation was more of an afterthought and not sufficient for sharing knowledge across the team. Communication is thus clearly an important part of infrastructure for ensuring maintainability.
 
 When looking at our backlog we see that we have many stale issues and a few duplicates. As the backlog grew the Github project board became less reliable as a planning tool and showed that we would need a better planning structure if we were to continue on with the project.
-Ultimately we identified a lot of small non-technical issues early on but did not do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
+Ultimately we identified a lot of small non-technical issues early on but didn't do much to mitigate them. This all shows that awareness is not enough and we need to actually dedicate time to address them.
 
 A significant change with this project is the fact that we were responsible for operations after deployment. The project required a shift to a continuous delivery mindset where we had to focus more on quality and maintainability. Our extended feedback loop ensured that we were constantly aware of these qualities through pull requests and monitoring, rather than focusing solely on feature delivery.
 
@@ -183,7 +183,7 @@ We made use of the following generative models for our work on Minitwit:
 
 We have used generative AI to explain code and help us understand different topics and technologies, so we could more easily work with them. We also used AI for code generation and to aid us in refactoring parts of the project. While we have made some effort to co-author the AI models when it was used, we have not tracked our AI usage systematically, so we are not able to identify all specific instances where generated code has been included.
 
-While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of shell script code, we used ChatGPT to translate it into a playbook. It translated the code too literally and did not take advantage of many Ansible specific features. Due to this we had to spend a substantial amount of time on fixing the generated code.
+While generative AI helped us with certain tasks and accelerated the process, it also introduced technical debt when its code was included without being properly reviewed. An example was when we refactored from Vagrant to Ansible. Since the vagrantfile consisted of over 500 lines of shell script code, we used ChatGPT to translate it into a playbook. It translated the code too literally and didn't take advantage of many Ansible specific features. Due to this we had to spend a substantial amount of time on fixing the generated code.
 In general we should have been more critical of our use of generative AI as it sometimes became a bit of a crutch and took away from our learning when it did our work for us.
 
 ## Appendix
