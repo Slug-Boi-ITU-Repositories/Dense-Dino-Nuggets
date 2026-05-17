@@ -135,7 +135,7 @@ We set up an alert that used Grafana's built-in Discord web hook, such that a Di
 
 #### Monitoring issues
 
-One large issue we ran into was that our Prometheus setup was not collecting accurate information from the minitwit system, after we started using swarm to have multiple replicas. This was an unfortunate side effect of Prometheus being a pull system. Because, when Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we needed to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus such that it would be able to aggregate data from all the replicas, or show data for each replica. However, we did not have the time to implement this as there were other things that took higher priority, so this never reached the top of the priority list.
+After we started using swarm to have multiple replicas our Prometheus setup stopped collecting accurate information from the Minitwit system. This was an unfortunate side effect of Prometheus being a pull system, since when Prometheus tried to pull data it would only get the monitoring data from one of the replicas. To solve this we need to move over to a push system, where each of the replicas would need a system to push their monitoring data to Prometheus so it can be aggregated and shown separately in grafana. We did however not have the time to implement this.
 
 ### 2.3 Logging
 
